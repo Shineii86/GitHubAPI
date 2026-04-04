@@ -1,17 +1,25 @@
 /**
  * Main Express application.
- * Used both for local development (listens on a port) and as a serverless function (exported).
+ * Serves:
+ * - API routes under /api
+ * - Static frontend website (from /public folder)
  */
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import userRoutes from './routes/user.routes.js';
 import { config } from './config/env.js';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
 // Middleware
 app.use(express.json());
 
-// Request logging (optional, for local debugging)
+// Request logging (development only)
 if (config.nodeEnv !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
@@ -19,17 +27,26 @@ if (config.nodeEnv !== 'production') {
   });
 }
 
-// Mount API routes
+// Serve static frontend files from /public
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath));
+
+// API routes (all under /api)
 app.use('/api', userRoutes);
 
-// Root redirect
+// Root route – serve the main HTML page
 app.get('/', (req, res) => {
-  res.redirect('/api');
+  res.sendFile(path.join(publicPath, 'index.html'));
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+// Catch-all for any other non-API routes – serve the frontend (SPA style)
+app.get('*', (req, res) => {
+  // If the request is not for an API endpoint, serve index.html
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  } else {
+    res.status(404).json({ error: 'API endpoint not found' });
+  }
 });
 
 // Global error handler
@@ -42,9 +59,9 @@ app.use((err, req, res, next) => {
 if (import.meta.url === `file://${process.argv[1]}`) {
   app.listen(config.port, () => {
     console.log(`🚀 Server running on http://localhost:${config.port}`);
-    console.log(`📊 Try: http://localhost:${config.port}/api/user/octocat`);
+    console.log(`📊 API: http://localhost:${config.port}/api/user/octocat`);
+    console.log(`🌐 Website: http://localhost:${config.port}`);
   });
 }
 
-// Export for Vercel serverless deployment
 export default app;
