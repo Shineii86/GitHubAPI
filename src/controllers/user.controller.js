@@ -34,7 +34,7 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/user/:username – unchanged
+// GET /api/user/:username – unchanged (keeps score for JSON)
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
   try {
@@ -87,7 +87,7 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username – compact badge with rank + level
+// GET /api/badge/:username – avatar, name, rank with level (no score)
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -97,8 +97,7 @@ export const generateBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const { score } = scoreData;
-    const rankWithLevel = getRankWithLevel(score);
-    const level = Math.floor(score);
+    const rankWithLevel = getRankWithLevel(score); // e.g., "MYTHIC LV90"
 
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
@@ -114,9 +113,8 @@ export const generateBadge = async (req, res) => {
     
     const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
-    const scoreColor = theme === 'light' ? '#2563eb' : '#38bdf8';
 
-    const width = 450;
+    const width = 400; // enough for "MYTHIC LV90"
     const height = 28;
     const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '';
 
@@ -128,8 +126,6 @@ export const generateBadge = async (req, res) => {
   <g opacity="0">${animation}
     <text x="36" y="18" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
     <text x="160" y="18" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithLevel)}</text>
-    <text x="300" y="18" fill="${scoreColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(score)}</text>
-    <text x="350" y="18" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11">LV${escapeXml(level)}</text>
   </g>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
@@ -150,7 +146,7 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – detailed card with level beside username
+// GET /api/card/:username – avatar, name, username+level, rank name (no score)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -169,7 +165,7 @@ export const generateProfileCard = async (req, res) => {
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
-    const rankName = getRankName(score);   // e.g., "MYTHIC" (no level)
+    const rankName = getRankName(score); // e.g., "MYTHIC" (no level)
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
@@ -186,7 +182,6 @@ export const generateProfileCard = async (req, res) => {
       textSecondary: '#475569',
       textMuted: '#64748b',
       rankColor: '#f97316',
-      scoreColor: '#3b82f6',
       avatarGlow: '#cbd5e1',
       watermarkColor: '#9ca3af',
     } : {
@@ -196,7 +191,6 @@ export const generateProfileCard = async (req, res) => {
       textSecondary: '#cbd5e1',
       textMuted: '#94a3b8',
       rankColor: '#fbbf24',
-      scoreColor: '#60a5fa',
       avatarGlow: '#334155',
       watermarkColor: '#64748b',
     };
@@ -225,7 +219,7 @@ export const generateProfileCard = async (req, res) => {
   <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 6}" fill="${colors.avatarGlow}" opacity="0.4"/>
   <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
 
-  <!-- User info: name, then username + level on same line -->
+  <!-- User info -->
   <g ${animationAttr}>${fadeIn}
     <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
     <!-- Username + level -->
@@ -233,11 +227,9 @@ export const generateProfileCard = async (req, res) => {
     <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
-  <!-- Rank name only (no level) -->
+  <!-- Rank name only (no level, no score) -->
   <g ${animationAttr}>${fadeIn}
-    <text x="${width/2}" y="230" text-anchor="middle" fill="${colors.rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
-    <!-- Score still displayed as numeric -->
-    <text x="${width/2}" y="260" text-anchor="middle" fill="${colors.scoreColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="700">Score: ${escapeXml(score)}</text>
+    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
   <!-- Following & Followers -->
@@ -270,7 +262,6 @@ export const generateProfileCard = async (req, res) => {
   }
 };
 
-// Helper: safe XML escape
 function escapeXml(str) {
   if (str == null) return '';
   const s = String(str);
