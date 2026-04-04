@@ -51,13 +51,10 @@ It combines **REST + GraphQL** endpoints, calculates a weighted **developer scor
 
 **Example badge:**  
 ![octocat badge](https://img.shields.io/badge/dynamic/json?label=octocat&query=rank&url=https%3A%2F%2Fgithubapi.vercel.app%2Fapi%2Fuser%2Foctocat&color=ffcc00)  
-*(Replace with your own deployment)*
 
 ---
 
 ## 📸 Screenshots
-
-> *Placeholder – replace with actual images*
 
 | API Response | Badge Embed |
 |--------------|-------------|
