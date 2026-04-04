@@ -1,17 +1,15 @@
 /**
  * GitHub API service – REST + GraphQL.
- * Fetches user profile, repositories, and contribution streak.
+ * Fetches user profile, repositories, contribution streak, and heatmap grid.
  */
 import axios from 'axios';
 import { config } from '../config/env.js';
 
-// REST API headers
 const restHeaders = {
   Authorization: `Bearer ${config.githubToken}`,
   Accept: 'application/vnd.github.v3+json',
 };
 
-// GraphQL API headers
 const graphqlHeaders = {
   Authorization: `Bearer ${config.githubToken}`,
   'Content-Type': 'application/json',
@@ -33,9 +31,31 @@ export const fetchGitHubData = async (username) => {
 };
 
 /**
- * Fetch contribution calendar and calculate streak (GraphQL).
+ * Convert contribution calendar into a 7×7 grid (last 7 weeks × 7 days)
+ * @param {object} calendar - from GitHub GraphQL
+ * @returns {number[][]} grid[week][day] = contribution count
+ */
+export const getContributionGrid = (calendar) => {
+  if (!calendar || !calendar.weeks) return Array(7).fill(Array(7).fill(0));
+  
+  const weeks = calendar.weeks.slice(-7); // last 7 weeks
+  const grid = [];
+  
+  for (const week of weeks) {
+    const weekData = week.contributionDays.map(day => day.contributionCount);
+    while (weekData.length < 7) weekData.push(0);
+    grid.push(weekData);
+  }
+  
+  while (grid.length < 7) grid.unshift(Array(7).fill(0));
+  
+  return grid;
+};
+
+/**
+ * Fetch contribution calendar and calculate streak + heatmap grid (GraphQL).
  * @param {string} username
- * @returns {Promise<{totalContributions: number, currentStreak: number, longestStreak: number}>}
+ * @returns {Promise<{totalContributions: number, currentStreak: number, longestStreak: number, contributionGrid: number[][]}>}
  */
 export const fetchContributions = async (username) => {
   const query = `
@@ -65,12 +85,16 @@ export const fetchContributions = async (username) => {
 
     const calendar = response.data?.data?.user?.contributionsCollection?.contributionCalendar;
     if (!calendar) {
-      return { totalContributions: 0, currentStreak: 0, longestStreak: 0 };
+      return {
+        totalContributions: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        contributionGrid: [],
+      };
     }
 
-    // Flatten all contribution days (most recent first)
+    // Calculate streak
     const days = calendar.weeks.flatMap((w) => w.contributionDays).reverse();
-
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
@@ -80,22 +104,27 @@ export const fetchContributions = async (username) => {
         tempStreak++;
         if (tempStreak > longestStreak) longestStreak = tempStreak;
       } else {
-        // When we hit the first zero, that's the end of the current streak
         if (currentStreak === 0) currentStreak = tempStreak;
         tempStreak = 0;
       }
     }
-    // If the user has contributed every day (no zero), currentStreak equals tempStreak
     if (currentStreak === 0) currentStreak = tempStreak;
+
+    const contributionGrid = getContributionGrid(calendar);
 
     return {
       totalContributions: calendar.totalContributions,
       currentStreak,
       longestStreak,
+      contributionGrid,
     };
   } catch (err) {
     console.error('GraphQL error:', err.message);
-    // Fallback to empty contributions
-    return { totalContributions: 0, currentStreak: 0, longestStreak: 0 };
+    return {
+      totalContributions: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      contributionGrid: [],
+    };
   }
 };
