@@ -217,8 +217,6 @@ export const generateProfileCard = async (req, res) => {
       textPrimary: '#0f172a',
       textSecondary: '#475569',
       textMuted: '#64748b',
-      rankGradStart: '#f97316',
-      rankGradEnd: '#ea580c',
       avatarGlow: '#cbd5e1',
       contributionHigh: '#16a34a',
       xpBarBg: '#e2e8f0',
@@ -229,8 +227,6 @@ export const generateProfileCard = async (req, res) => {
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
       textMuted: '#94a3b8',
-      rankGradStart: '#fbbf24',
-      rankGradEnd: '#f59e0b',
       avatarGlow: '#334155',
       contributionHigh: '#22c55e',
       xpBarBg: '#1e293b',
@@ -361,15 +357,16 @@ export const generateProfileCard = async (req, res) => {
     res.send(svg);
   } catch (err) {
     console.error('Card generation error:', err.message);
+    console.error(err.stack);
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
     const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
     const text = theme === 'light' ? '#111827' : '#f1f5f9';
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
   <rect width="600" height="300" rx="20" fill="${bg}"/>
-  <text x="300" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Unable to generate card — user not found or API error</text>
+  <text x="300" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Error: ${escapeXml(err.message)}</text>
 </svg>`;
-    res.status(404).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
+    res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
 };
 
