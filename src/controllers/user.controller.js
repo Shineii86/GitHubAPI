@@ -22,6 +22,9 @@ import { getCached, setCached } from '../services/cache.service.js';
 import { getRankFromLevel } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
 
+// Best font stack for all platforms
+const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
 // ----------------------------------------------------------------------
 // Helper: get analysis + score (cached)
 // ----------------------------------------------------------------------
@@ -34,7 +37,7 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/user/:username – JSON analysis (unchanged)
+// GET /api/user/:username – JSON analysis (includes level)
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
   try {
@@ -46,6 +49,8 @@ export const getUserAnalysis = async (req, res) => {
     }
 
     const { analysis, scoreData } = await getUserAnalysisData(username);
+    const level = Math.floor(scoreData.score);
+    const rankTitle = getRankFromLevel(scoreData.score);
 
     let aiSummary = null;
     if (process.env.OPENAI_API_KEY) {
@@ -55,7 +60,9 @@ export const getUserAnalysis = async (req, res) => {
     const response = {
       username,
       score: scoreData.score,
-      rank: scoreData.rank,         // original letter rank (D–SSS)
+      rank: scoreData.rank,          // original letter rank (D–SSS)
+      rankTitle,                     // game‑style title (e.g., "MYTHIC (LV90)")
+      level,                         // numeric level (floor of score)
       profile: analysis.profile,
       stats: analysis.stats,
       topLanguages: analysis.languages,
@@ -74,7 +81,7 @@ export const getUserAnalysis = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/compare/:user1/:user2 – unchanged
+// GET /api/compare/:user1/:user2 – includes level and rankTitle
 // ----------------------------------------------------------------------
 export const compareUsers = async (req, res) => {
   try {
@@ -84,9 +91,18 @@ export const compareUsers = async (req, res) => {
       getUserAnalysisData(user2),
     ]);
 
+    const buildUserData = (username, data) => ({
+      username,
+      score: data.scoreData.score,
+      rank: data.scoreData.rank,
+      rankTitle: getRankFromLevel(data.scoreData.score),
+      level: Math.floor(data.scoreData.score),
+      ...data.analysis,
+    });
+
     res.json({
-      user1: { username: user1, ...data1.analysis, ...data1.scoreData },
-      user2: { username: user2, ...data2.analysis, ...data2.scoreData },
+      user1: buildUserData(user1, data1),
+      user2: buildUserData(user2, data2),
     });
   } catch (err) {
     console.error(err);
@@ -95,7 +111,7 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username – SVG badge with game‑style rank
+// GET /api/badge/:username – SVG badge with game‑style rank, score, level
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -106,19 +122,17 @@ export const generateBadge = async (req, res) => {
     const { scoreData } = await getUserAnalysisData(username);
     const { score } = scoreData;
     const level = Math.floor(score);
-    const rankTitle = getRankFromLevel(score);  // e.g., "MYTHIC (LV90)"
+    const rankTitle = getRankFromLevel(score);
 
-    // Fetch user data for avatar and name
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
       timeout: 5000,
     });
     const avatarUrl = rawUser.avatar_url;
-    const avatarBase64 = await getBase64Image(avatarUrl); // embed as base64
+    const avatarBase64 = await getBase64Image(avatarUrl);
     const displayName = rawUser.name || username;
     const nameText = displayName.length > 16 ? displayName.slice(0, 13) + '...' : displayName;
 
-    // Theme colours
     const bgGradient = theme === 'light'
       ? '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>'
       : '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#1e293b"/></linearGradient>';
@@ -127,7 +141,7 @@ export const generateBadge = async (req, res) => {
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
     const scoreColor = theme === 'light' ? '#2563eb' : '#38bdf8';
 
-    const width = 420; // wider to fit rank title
+    const width = 440; // enough for rank title
     const height = 28;
     const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '';
 
@@ -137,10 +151,10 @@ export const generateBadge = async (req, res) => {
   <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
   <image href="${escapeXml(avatarBase64)}" x="8" y="4" width="20" height="20" clip-path="url(#c)"/>
   <g opacity="0">${animation}
-    <text x="36" y="18" fill="${textColor}" font-family="system-ui, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-    <text x="160" y="18" fill="${rankColor}" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankTitle)}</text>
-    <text x="280" y="18" fill="${scoreColor}" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">${escapeXml(score)}</text>
-    <text x="330" y="18" fill="${textColor}" font-family="system-ui, sans-serif" font-size="11">LV${escapeXml(level)}</text>
+    <text x="36" y="18" fill="${textColor}" font-family="${FONT_STACK}" font-size="12">${escapeXml(nameText)}</text>
+    <text x="160" y="18" fill="${rankColor}" font-family="${FONT_STACK}" font-size="12" font-weight="bold">${escapeXml(rankTitle)}</text>
+    <text x="290" y="18" fill="${scoreColor}" font-family="${FONT_STACK}" font-size="12" font-weight="bold">${escapeXml(score)}</text>
+    <text x="340" y="18" fill="${textColor}" font-family="${FONT_STACK}" font-size="11">LV${escapeXml(level)}</text>
   </g>
 </svg>`;
 
@@ -155,14 +169,14 @@ export const generateBadge = async (req, res) => {
     const fallbackSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="48" viewBox="0 0 300 48">
   <rect width="300" height="48" rx="12" fill="${bg}"/>
-  <text x="150" y="28" text-anchor="middle" fill="${text}" font-family="system-ui, sans-serif" font-size="14">User not found</text>
+  <text x="150" y="28" text-anchor="middle" fill="${text}" font-family="${FONT_STACK}" font-size="14">User not found</text>
 </svg>`;
     res.status(404).setHeader('Content-Type', 'image/svg+xml').send(fallbackSvg);
   }
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – SVG card with game‑style rank
+// GET /api/card/:username – SVG card with level beside username
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -181,7 +195,7 @@ export const generateProfileCard = async (req, res) => {
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
-    const rankTitle = getRankFromLevel(score);   // game‑style rank
+    const rankTitle = getRankFromLevel(score);
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
@@ -235,15 +249,15 @@ export const generateProfileCard = async (req, res) => {
   <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
 
   <g ${animationAttr}>${fadeIn}
-    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, sans-serif" font-size="14">@${escapeXml(username)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="system-ui, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="${FONT_STACK}" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="${FONT_STACK}" font-size="14">@${escapeXml(username)} · LV${escapeXml(level)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="${FONT_STACK}" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
   <g ${animationAttr}>${fadeIn}
-    <text x="${width/2 - 100}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="system-ui, sans-serif" font-size="32" font-weight="800">${escapeXml(rankTitle)}</text>
-    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.scoreColor}" font-family="system-ui, sans-serif" font-size="28" font-weight="800">${escapeXml(score)}</text>
-    <text x="${width/2 + 100}" y="240" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, sans-serif" font-size="20" font-weight="700">LV${escapeXml(level)}</text>
+    <text x="${width/2 - 100}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="${FONT_STACK}" font-size="32" font-weight="800">${escapeXml(rankTitle)}</text>
+    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.scoreColor}" font-family="${FONT_STACK}" font-size="28" font-weight="800">${escapeXml(score)}</text>
+    <text x="${width/2 + 100}" y="240" text-anchor="middle" fill="${colors.textSecondary}" font-family="${FONT_STACK}" font-size="20" font-weight="700">LV${escapeXml(level)}</text>
 
     <text x="${width/2 - 100}" y="260" text-anchor="middle" fill="${colors.textMuted}" font-size="11">RANK</text>
     <text x="${width/2}" y="260" text-anchor="middle" fill="${colors.textMuted}" font-size="11">SCORE</text>
@@ -251,12 +265,12 @@ export const generateProfileCard = async (req, res) => {
   </g>
 
   <g transform="translate(${width/2 - 100}, 280)" ${animationAttr}>${fadeIn}
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Following</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="${FONT_STACK}" font-size="18" font-weight="700">${escapeXml(following)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="${FONT_STACK}" font-size="11">Following</text>
   </g>
   <g transform="translate(${width/2 + 100}, 280)" ${animationAttr}>${fadeIn}
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Followers</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="${FONT_STACK}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="${FONT_STACK}" font-size="11">Followers</text>
   </g>
 </svg>`;
 
@@ -271,7 +285,7 @@ export const generateProfileCard = async (req, res) => {
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="320" viewBox="0 0 500 320">
   <rect width="500" height="320" rx="20" fill="${bg}"/>
-  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
+  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="${FONT_STACK}" font-size="18">Error: ${escapeXml(String(err.message))}</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
