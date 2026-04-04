@@ -85,6 +85,7 @@ export const fetchContributions = async (username) => {
 
     const calendar = response.data?.data?.user?.contributionsCollection?.contributionCalendar;
     if (!calendar) {
+      console.warn(`No contribution calendar for ${username}`);
       return {
         totalContributions: 0,
         currentStreak: 0,
