@@ -1,5 +1,5 @@
 /**
- * User controller – all endpoints with iOS fonts, game‑style ranks, base64 avatars.
+ * User controller – all endpoints with Google Sans fonts, game‑style ranks, base64 avatars.
  * 
  * Features:
  * - JSON analysis (/api/user/:username) with advanced Level (LV0–100 + rank GOGLIKE)
@@ -9,9 +9,9 @@
  * - Optional AI summaries (OpenAI)
  * - Redis caching (5 min TTL)
  * - Light/dark themes via query parameters
- * - iOS‑optimised font stack and base64‑embedded avatars for reliability
+ * - Google Sans font stack (fallback to Product Sans, sans-serif)
  * - Card supports unlimited custom background images (query param ?bgImage=1,2,3,…) – hardcoded array
- * - Custom backgrounds are fetched and embedded as base64 (bypasses CORS & external loading issues)
+ * - Custom backgrounds are fetched and embedded as base64 + theme overlay (light/dark)
  * - Badge has no animation (removed)
  * 
  * Author: Shinei Nouzen (@Shineii86)
@@ -125,6 +125,7 @@ export const compareUsers = async (req, res) => {
 
 // ----------------------------------------------------------------------
 // GET /api/badge/:username – NO ANIMATION (avatar, name, rank with bullet)
+// Uses Google Sans font
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -158,8 +159,8 @@ export const generateBadge = async (req, res) => {
   <defs>${bgGradient}<clipPath id="c"><circle cx="18" cy="15" r="10"/></clipPath></defs>
   <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
   <image href="${escapeXml(avatarBase64)}" x="8" y="5" width="20" height="20" clip-path="url(#c)"/>
-  <text x="36" y="19" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-  <text x="150" y="19" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
+  <text x="36" y="19" fill="${textColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">${escapeXml(nameText)}</text>
+  <text x="150" y="19" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -172,7 +173,7 @@ export const generateBadge = async (req, res) => {
     const fallbackSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="48" viewBox="0 0 300 48">
   <rect width="300" height="48" rx="12" fill="${bg}"/>
-  <text x="150" y="28" text-anchor="middle" fill="${text}" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14">User not found</text>
+  <text x="150" y="28" text-anchor="middle" fill="${text}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">User not found</text>
 </svg>`;
     res.status(404).setHeader('Content-Type', 'image/svg+xml').send(fallbackSvg);
   }
@@ -181,7 +182,8 @@ export const generateBadge = async (req, res) => {
 // ----------------------------------------------------------------------
 // GET /api/card/:username – detailed card with optional custom background images
 // Query: ?bgImage=1,2,3,... (1‑based index into CUSTOM_BG array)
-// Custom backgrounds are fetched and embedded as base64 (100% reliable)
+// Custom backgrounds are fetched and embedded as base64 + theme overlay
+// Uses Google Sans font
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -218,7 +220,7 @@ export const generateProfileCard = async (req, res) => {
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 30;
 
-    // Color schemes for text & elements (background is overridden by custom image if used)
+    // Color schemes for text & elements (background overlay uses same theme)
     const colors = theme === 'light' ? {
       textPrimary: '#0f172a',
       textSecondary: '#475569',
@@ -226,6 +228,7 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#f97316',
       avatarGlow: '#cbd5e1',
       watermarkColor: '#9ca3af',
+      overlayColor: 'rgba(255, 255, 255, 0.75)', // light overlay for custom background
     } : {
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
@@ -233,16 +236,19 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#fbbf24',
       avatarGlow: '#334155',
       watermarkColor: '#64748b',
+      overlayColor: 'rgba(0, 0, 0, 0.65)', // dark overlay for custom background
     };
 
-    // Build background section: 
-    // - If custom image (base64 embedded): use it directly without any overlay or gradient
+    // Build background section:
+    // - If custom image (base64 embedded): use image + theme overlay rectangle
     // - Else: use theme gradient
     let backgroundSvg = '';
     if (bgImageDataUrl) {
       backgroundSvg = `
-    <!-- Custom background image (base64 embedded – no external requests, no CORS) -->
+    <!-- Custom background image (base64 embedded) -->
     <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+    <!-- Theme overlay for readability -->
+    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
       `;
     } else {
       backgroundSvg = `
@@ -265,7 +271,7 @@ export const generateProfileCard = async (req, res) => {
     </clipPath>
   </defs>
 
-  <!-- Background (custom image or gradient) -->
+  <!-- Background (custom image + overlay OR gradient) -->
   <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
   ${backgroundSvg}
 
@@ -275,29 +281,29 @@ export const generateProfileCard = async (req, res) => {
 
   <!-- User info -->
   <g>
-    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
     <!-- Username + level -->
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
   <!-- Rank name only -->
   <g>
-    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
+    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
   <!-- Following & Followers -->
   <g transform="translate(${width/2 - 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Following</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(following)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Following</text>
   </g>
   <g transform="translate(${width/2 + 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Followers</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(followers)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Followers</text>
   </g>
 
   <!-- API Watermark -->
-  <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
+  <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -310,7 +316,7 @@ export const generateProfileCard = async (req, res) => {
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="320" viewBox="0 0 500 320">
   <rect width="500" height="320" rx="20" fill="${bg}"/>
-  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
+  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
