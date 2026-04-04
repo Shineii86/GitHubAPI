@@ -1,5 +1,8 @@
 /**
  * Request handlers for user analysis, comparison, badges, and profile cards.
+ * Supports:
+ * - Light/dark theme (query param `?theme=light`)
+ * - Animated stats (fade-in + count-up via SVG `<animate>`)
  */
 import axios from 'axios';
 import { fetchGitHubData, fetchContributions } from '../services/github.service.js';
@@ -107,84 +110,117 @@ export const generateBadge = async (req, res) => {
 
 /**
  * GET /api/card/:username
- * Professional profile card with photo, following/followers, rank, score
+ * Professional profile card with:
+ * - Avatar, name, bio, following/followers, rank, score
+ * - Optional light theme (?theme=light)
+ * - Optional animated stats (?animated=true)
  */
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
+    const theme = req.query.theme === 'light' ? 'light' : 'dark';
+    const animated = req.query.animated === 'true';
 
-    // 1. Get analysis & score
     const { analysis, scoreData } = await getUserAnalysisData(username);
-
-    // 2. Fetch raw user data for avatar, following, bio (reuse token)
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
       timeout: 5000,
     });
 
-    const {
-      avatar_url,
-      followers,
-      following,
-      bio,
-      name,
-    } = rawUser;
-
+    const { avatar_url, followers, following, bio, name } = rawUser;
     const { rank, score } = scoreData;
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
 
-    // SVG dimensions
+    // Theme colours
+    const colors = theme === 'light'
+      ? {
+          bgStart: '#f8f9fa',
+          bgEnd: '#e9ecef',
+          cardBg: '#ffffff',
+          textPrimary: '#212529',
+          textSecondary: '#6c757d',
+          textMuted: '#adb5bd',
+          rankGradStart: '#e67e22',
+          rankGradEnd: '#f39c12',
+          avatarGlow: '#dee2e6',
+        }
+      : {
+          bgStart: '#1f1f2e',
+          bgEnd: '#2a2a3b',
+          cardBg: '#1f1f2e',
+          textPrimary: '#ffffff',
+          textSecondary: '#aaaaaa',
+          textMuted: '#6c757d',
+          rankGradStart: '#ffb347',
+          rankGradEnd: '#ffcc33',
+          avatarGlow: '#3a3a4e',
+        };
+
     const width = 480;
-    const height = 320;
+    const height = 380;
     const avatarSize = 80;
     const avatarX = width / 2 - avatarSize / 2;
-    const avatarY = 40;
+    const avatarY = 35;
+
+    const rankAnimation = animated
+      ? `<animate attributeName="opacity" from="0" to="1" dur="0.5s" fill="freeze"/>
+         <animate attributeName="transform" type="scale" from="0.5" to="1" dur="0.4s" fill="freeze" additive="sum"/>`
+      : '';
+    const scoreAnimation = animated
+      ? `<animate attributeName="opacity" from="0" to="1" dur="0.5s" fill="freeze"/>
+         <animate attributeName="transform" type="scale" from="0.5" to="1" dur="0.4s" fill="freeze" additive="sum"/>`
+      : '';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1f1f2e;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#2a2a3b;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:${colors.bgStart};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:${colors.bgEnd};stop-opacity:1" />
     </linearGradient>
     <linearGradient id="rankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#ffb347" />
-      <stop offset="100%" style="stop-color:#ffcc33" />
+      <stop offset="0%" style="stop-color:${colors.rankGradStart}" />
+      <stop offset="100%" style="stop-color:${colors.rankGradEnd}" />
     </linearGradient>
     <clipPath id="circleClip">
       <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
     </clipPath>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.3"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.15"/>
     </filter>
   </defs>
 
   <rect width="100%" height="100%" rx="16" fill="url(#bgGrad)" filter="url(#shadow)"/>
-  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 4}" fill="#3a3a4e" />
+  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 4}" fill="${colors.avatarGlow}" />
   <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatar_url}" clip-path="url(#circleClip)" />
 
-  <text x="${width/2}" y="${avatarY + avatarSize + 25}" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="18" font-weight="bold">${escapeXml(displayName)}</text>
-  <text x="${width/2}" y="${avatarY + avatarSize + 45}" text-anchor="middle" fill="#aaaaaa" font-family="Arial, sans-serif" font-size="13">@${escapeXml(username)}</text>
-  <text x="${width/2}" y="${avatarY + avatarSize + 70}" text-anchor="middle" fill="#cccccc" font-family="Arial, sans-serif" font-size="12">${escapeXml(shortBio)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 22}" text-anchor="middle" fill="${colors.textPrimary}" font-family="Arial, sans-serif" font-size="18" font-weight="bold">${escapeXml(displayName)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 42}" text-anchor="middle" fill="${colors.textSecondary}" font-family="Arial, sans-serif" font-size="13">@${escapeXml(username)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 65}" text-anchor="middle" fill="${colors.textMuted}" font-family="Arial, sans-serif" font-size="12">${escapeXml(shortBio)}</text>
 
-  <g transform="translate(${width/2 - 120}, ${height - 90})">
-    <text x="0" y="0" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="bold">${following}</text>
-    <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="12">Following</text>
-  </g>
-  <g transform="translate(${width/2 + 120}, ${height - 90})">
-    <text x="0" y="0" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="bold">${followers}</text>
-    <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="12">Followers</text>
-  </g>
-
-  <g transform="translate(${width/2 - 70}, ${height - 100})">
+  <g transform="translate(${width/2 - 70}, ${height - 130})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? rankAnimation : ''}
     <text x="0" y="0" text-anchor="middle" fill="url(#rankGrad)" font-family="'Courier New', monospace" font-size="48" font-weight="bold">${rank}</text>
-    <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="10">RANK</text>
+    <text x="0" y="22" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">RANK</text>
   </g>
 
-  <g transform="translate(${width/2 + 70}, ${height - 100})">
-    <text x="0" y="0" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${score}</text>
-    <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="10">SCORE</text>
+  <g transform="translate(${width/2 + 70}, ${height - 130})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? scoreAnimation : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${score}</text>
+    <text x="0" y="22" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">SCORE</text>
+  </g>
+
+  <g transform="translate(${width/2 - 120}, ${height - 55})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="bold">${following}</text>
+    <text x="0" y="20" text-anchor="middle" fill="${colors.textSecondary}" font-size="12">Following</text>
+  </g>
+
+  <g transform="translate(${width/2 + 120}, ${height - 55})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="bold">${followers}</text>
+    <text x="0" y="20" text-anchor="middle" fill="${colors.textSecondary}" font-size="12">Followers</text>
   </g>
 </svg>`;
 
@@ -193,7 +229,6 @@ export const generateProfileCard = async (req, res) => {
     res.send(svg);
   } catch (err) {
     console.error('Card generation error:', err.message);
-    // Send a graceful fallback SVG
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
   <rect width="400" height="200" fill="#2d2d2d" rx="12"/>
@@ -203,9 +238,6 @@ export const generateProfileCard = async (req, res) => {
   }
 };
 
-/**
- * Helper: escape XML special characters
- */
 function escapeXml(str) {
   if (!str) return '';
   return str.replace(/[<>&'"]/g, (ch) => {
