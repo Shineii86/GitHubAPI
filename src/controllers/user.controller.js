@@ -1,11 +1,10 @@
 /**
- * User controller – all endpoints with iOS fonts, game‑style ranks, and avatars.
+ * User controller – JSON analysis, comparison, and profile card (no badge).
  * 
  * Features:
- * - JSON analysis (/api/user/:username)
+ * - JSON analysis (/api/user/:username) with advanced scoring
  * - Side‑by‑side comparison (/api/compare/:user1/:user2)
- * - SVG badge (/api/badge/:username) – avatar, name, rank with level (e.g., "MYTHIC • LV90")
- * - SVG profile card (/api/card/:username) – full profile card with level beside username
+ * - SVG profile card (/api/card/:username) – avatar, name, username+level, rank name, following/followers, watermark
  * - Optional AI summaries, Redis caching, themes, animations
  * 
  * Author: Shinei Nouzen (@Shineii86)
@@ -18,7 +17,7 @@ import { analyzeUser } from '../services/analysis.service.js';
 import { calculateScore } from '../services/scoring.service.js';
 import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
-import { getRankName, getRankWithBullet } from '../utils/rank.js';
+import { getRankName } from '../utils/rank.js';
 
 // ----------------------------------------------------------------------
 // Helper: get analysis + score (cached)
@@ -85,70 +84,8 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username
-// SVG badge: avatar + name + rank with level (e.g., "MYTHIC • LV90")
+// GET /api/card/:username – SVG profile card
 // Query: ?theme=light|dark (default dark), ?animated=true
-// ----------------------------------------------------------------------
-export const generateBadge = async (req, res) => {
-  try {
-    const { username } = req.params;
-    const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const animated = req.query.animated === 'true';
-
-    const { scoreData } = await getUserAnalysisData(username);
-    const { score } = scoreData;
-    const rankWithBullet = getRankWithBullet(score); // "MYTHIC • LV90"
-
-    // Fetch user data for avatar and name
-    const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
-      timeout: 5000,
-    });
-    const avatarUrl = rawUser.avatar_url;  // direct GitHub URL (no base64)
-    const displayName = rawUser.name || username;
-    const nameText = displayName.length > 14 ? displayName.slice(0, 11) + '...' : displayName;
-
-    // Theme colours
-    const bgGradient = theme === 'light'
-      ? '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>'
-      : '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#1e293b"/></linearGradient>';
-    
-    const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
-    const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
-
-    const width = 440;
-    const height = 28;
-    const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '';
-
-    const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>${bgGradient}<clipPath id="c"><circle cx="18" cy="14" r="10"/></clipPath></defs>
-  <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
-  <image href="${escapeXml(avatarUrl)}" x="8" y="4" width="20" height="20" clip-path="url(#c)"/>
-  <g opacity="0">${animation}
-    <text x="36" y="18" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-    <text x="150" y="18" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
-  </g>
-</svg>`;
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    res.send(svg);
-  } catch (err) {
-    console.error('Badge error:', err.message);
-    const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const bg = theme === 'light' ? '#f8fafc' : '#1f2937';
-    const text = theme === 'light' ? '#1e293b' : '#f1f5f9';
-    const fallbackSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="300" height="48" viewBox="0 0 300 48">
-  <rect width="300" height="48" rx="12" fill="${bg}"/>
-  <text x="150" y="28" text-anchor="middle" fill="${text}" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14">User not found</text>
-</svg>`;
-    res.status(404).setHeader('Content-Type', 'image/svg+xml').send(fallbackSvg);
-  }
-};
-
-// ----------------------------------------------------------------------
-// GET /api/card/:username – detailed profile card (kept for completeness)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -258,9 +195,7 @@ export const generateProfileCard = async (req, res) => {
   }
 };
 
-// ----------------------------------------------------------------------
 // Helper: safe XML escape
-// ----------------------------------------------------------------------
 function escapeXml(str) {
   if (str == null) return '';
   const s = String(str);
