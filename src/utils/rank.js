@@ -27,9 +27,9 @@ export function getRankName(score) {
 }
 
 /**
- * Get rank with level (e.g., "MYTHIC LV90")
+ * Get rank with level and bullet (e.g., "MYTHIC • LV90")
  */
-export function getRankWithLevel(score) {
+export function getRankWithBullet(score) {
   const { name, level } = getRankDetails(score);
-  return `${name} LV${level}`;
+  return `${name} • LV${level}`;
 }
