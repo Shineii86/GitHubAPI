@@ -436,4 +436,5 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 ![Last Commit](https://img.shields.io/github/last-commit/Shineii86/GitHubAPI?style=for-the-badge)
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B9,100:3B82F6&height=100&section=footer" width="100%"/>
+
 </div>
