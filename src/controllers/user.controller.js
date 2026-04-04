@@ -1,13 +1,15 @@
 /**
- * Request handlers for user analysis, comparison, badges, and profile cards.
+ * User controller – all endpoints with iOS fonts, game‑style ranks, base64 avatars.
  * 
  * Features:
- * - GitHub REST + GraphQL data fetching
- * - Advanced scoring (0–100 + rank D–SSS)
- * - AI summaries (OpenAI, optional)
+ * - JSON analysis (/api/user/:username) with advanced scoring (0–100 + rank D–SSS)
+ * - Side‑by‑side comparison (/api/compare/:user1/:user2)
+ * - SVG badge (/api/badge/:username) – avatar, name, game rank with level (e.g., "MYTHIC • LV90")
+ * - SVG profile card (/api/card/:username) – avatar, name, username + level, rank name only, following/followers, watermark
+ * - Optional AI summaries (OpenAI)
  * - Redis caching (5 min TTL)
- * - Badge (horizontal, with avatar, theme, animation)
- * User controller – all endpoints with iOS fonts, game‑style ranks, base64 avatars.
+ * - Light/dark themes and animations via query parameters
+ * - iOS‑optimised font stack and base64‑embedded avatars for reliability
  * 
  * Author: Shinei Nouzen (@Shineii86)
  * License: MIT
@@ -19,7 +21,7 @@ import { analyzeUser } from '../services/analysis.service.js';
 import { calculateScore } from '../services/scoring.service.js';
 import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
-import { getRankName, getRankWithLevel } from '../utils/rank.js';
+import { getRankName, getRankWithBullet } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
@@ -87,7 +89,7 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username – avatar, name, rank with level (no score)
+// GET /api/badge/:username – avatar, name, rank with bullet (e.g., "MYTHIC • LV90")
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -97,7 +99,7 @@ export const generateBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const { score } = scoreData;
-    const rankWithLevel = getRankWithLevel(score); // e.g., "MYTHIC LV90"
+    const rankWithBullet = getRankWithBullet(score); // "MYTHIC • LV90"
 
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
@@ -105,7 +107,7 @@ export const generateBadge = async (req, res) => {
     });
     const avatarBase64 = await getBase64Image(rawUser.avatar_url);
     const displayName = rawUser.name || username;
-    const nameText = displayName.length > 16 ? displayName.slice(0, 13) + '...' : displayName;
+    const nameText = displayName.length > 14 ? displayName.slice(0, 11) + '...' : displayName;
 
     const bgGradient = theme === 'light'
       ? '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>'
@@ -114,7 +116,7 @@ export const generateBadge = async (req, res) => {
     const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
 
-    const width = 400; // enough for "MYTHIC LV90"
+    const width = 440;
     const height = 28;
     const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '';
 
@@ -125,7 +127,7 @@ export const generateBadge = async (req, res) => {
   <image href="${escapeXml(avatarBase64)}" x="8" y="4" width="20" height="20" clip-path="url(#c)"/>
   <g opacity="0">${animation}
     <text x="36" y="18" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-    <text x="160" y="18" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithLevel)}</text>
+    <text x="150" y="18" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
   </g>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
@@ -146,7 +148,7 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – avatar, name, username+level, rank name (no score)
+// GET /api/card/:username – detailed card: level beside username, rank name only (no score)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -222,6 +224,63 @@ export const generateProfileCard = async (req, res) => {
   <!-- User info -->
   <g ${animationAttr}>${fadeIn}
     <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
+    <!-- Username + level -->
+    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
+  </g>
+
+  <!-- Rank name only (no level, no score) -->
+  <g ${animationAttr}>${fadeIn}
+    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
+  </g>
+
+  <!-- Following & Followers -->
+  <g transform="translate(${width/2 - 100}, 280)" ${animationAttr}>${fadeIn}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(following)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Following</text>
+  </g>
+  <g transform="translate(${width/2 + 100}, 280)" ${animationAttr}>${fadeIn}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Followers</text>
+  </g>
+
+  <!-- API Watermark -->
+  <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9" opacity="0.6">githubapi.vercel.app</text>
+</svg>`;
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(svg);
+  } catch (err) {
+    console.error('Card error:', err.message);
+    const theme = req.query.theme === 'light' ? 'light' : 'dark';
+    const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
+    const text = theme === 'light' ? '#111827' : '#f1f5f9';
+    const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="320" viewBox="0 0 500 320">
+  <rect width="500" height="320" rx="20" fill="${bg}"/>
+  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
+</svg>`;
+    res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
+  }
+};
+
+// ----------------------------------------------------------------------
+// Helper: safe XML escape
+// ----------------------------------------------------------------------
+function escapeXml(str) {
+  if (str == null) return '';
+  const s = String(str);
+  return s.replace(/[<>&'"]/g, (ch) => {
+    switch (ch) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case "'": return '&apos;';
+      case '"': return '&quot;';
+      default: return ch;
+    }
+  });
+      }rial, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
     <!-- Username + level -->
     <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
     <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
