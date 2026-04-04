@@ -1,4 +1,5 @@
 /**
+/**
  * Request handlers for user analysis, comparison, badges, and profile cards.
  * 
  * Features:
@@ -6,8 +7,8 @@
  * - Advanced scoring (0–100 + rank D–SSS)
  * - AI summaries (OpenAI, optional)
  * - Redis caching (5 min TTL)
- * - Shields.io‑style badge (theme, animation, avatar)
- * - Glassmorphism profile card with contribution heatmap, golden rank frame, XP bar
+ * - Badge (horizontal, with avatar, theme, animation)
+ * - Profile card (large, custom backgrounds, theme, animation)
  * 
  * Author: Shinei Nouzen (@Shineii86)
  * License: MIT
@@ -21,7 +22,7 @@ import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
 
 // ----------------------------------------------------------------------
-// Helper: get analysis + score (cached internally)
+//  Helper: get analysis + score for a user (no caching, used internally)
 // ----------------------------------------------------------------------
 export const getUserAnalysisData = async (username) => {
   const githubData = await fetchGitHubData(username);
@@ -32,20 +33,8 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// Helper: rank title from score
-// ----------------------------------------------------------------------
-function getRankTitle(score) {
-  if (score >= 95) return 'GRANDMASTER';
-  if (score >= 80) return 'MASTER';
-  if (score >= 65) return 'EXPERT';
-  if (score >= 45) return 'REGULAR';
-  if (score >= 25) return 'APPRENTICE';
-  return 'BEGINNER';
-}
-
-// ----------------------------------------------------------------------
-// GET /api/user/:username
-// Returns full JSON analysis
+//  GET /api/user/:username
+//  Returns full JSON analysis (profile, stats, languages, AI summary)
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
   try {
@@ -85,7 +74,8 @@ export const getUserAnalysis = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/compare/:user1/:user2
+//  GET /api/compare/:user1/:user2
+//  Side‑by‑side comparison of two GitHub users
 // ----------------------------------------------------------------------
 export const compareUsers = async (req, res) => {
   try {
@@ -106,8 +96,14 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username
-// SVG badge: avatar, name, rank, score, level
+//  GET /api/badge/:username
+//  Modern horizontal badge with:
+//  - Circular profile photo (36×36)
+//  - Username (truncated)
+//  - Rank + label
+//  - Score + label
+//  - Query: ?theme=light|dark (default dark)
+//  - Query: ?animated=true (fade-in)
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -118,39 +114,73 @@ export const generateBadge = async (req, res) => {
     const { scoreData } = await getUserAnalysisData(username);
     const { rank, score } = scoreData;
 
+    // Fetch user info for display name
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
       timeout: 5000,
     });
-
-    const avatarUrl = rawUser.avatar_url;
+    const avatarUrl = `https://github.com/${username}.png?size=64`;
     const displayName = rawUser.name || username;
-    const nameText = displayName.length > 16 ? displayName.slice(0, 13) + '...' : displayName;
-    const level = Math.floor(score);
-    const rankTitle = getRankTitle(score);
 
-    const bgGradient = theme === 'light'
-      ? '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>'
-      : '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#334155"/><stop offset="1" stop-color="#1e293b"/></linearGradient>';
-    
-    const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
-    const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
-    const scoreColor = theme === 'light' ? '#2563eb' : '#38bdf8';
+    // Theme colours
+    const colors = theme === 'light'
+      ? {
+          bgStart: '#f8fafc',
+          bgEnd: '#e2e8f0',
+          textPrimary: '#1e293b',
+          rankColor: '#e67e22',
+          scoreColor: '#3b82f6',
+          labelColor: '#64748b',
+        }
+      : {
+          bgStart: '#1f2937',
+          bgEnd: '#111827',
+          textPrimary: '#f1f5f9',
+          rankColor: '#fbbf24',
+          scoreColor: '#60a5fa',
+          labelColor: '#9ca3af',
+        };
 
-    const width = 380;
-    const height = 28;
-    const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '';
+    const height = 48;
+    const avatarSize = 36;
+    const avatarX = 8;
+    const avatarY = (height - avatarSize) / 2;
+    const textStartX = avatarX + avatarSize + 12;
+
+    const nameText = displayName.length > 18 ? displayName.slice(0, 15) + '...' : displayName;
+    const rankText = `${rank}`;
+    const scoreText = `${score}`;
+
+    // Approximate width
+    const nameWidth = nameText.length * 8;
+    const rankWidth = rankText.length * 12 + 40; // +40 for "Rank" label
+    const scoreWidth = scoreText.length * 12 + 40;
+    const totalWidth = textStartX + nameWidth + 30 + rankWidth + 30 + scoreWidth + 20;
+
+    const animationAttr = animated ? 'opacity="0"' : '';
+    const animationElem = animated
+      ? `<animate attributeName="opacity" from="0" to="1" dur="0.5s" fill="freeze"/>`
+      : '';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <defs>${bgGradient}<clipPath id="c"><circle cx="18" cy="14" r="10"/></clipPath></defs>
-  <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
-  <image href="${escapeXml(avatarUrl)}" x="8" y="4" width="20" height="20" clip-path="url(#c)"/>
-  <g opacity="0">${animation}
-    <text x="36" y="18" fill="${textColor}" font-family="system-ui, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-    <text x="160" y="18" fill="${rankColor}" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankTitle)}</text>
-    <text x="230" y="18" fill="${scoreColor}" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">${escapeXml(score)}</text>
-    <text x="290" y="18" fill="${textColor}" font-family="system-ui, sans-serif" font-size="11">LV${escapeXml(level)}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${colors.bgStart}"/>
+      <stop offset="100%" stop-color="${colors.bgEnd}"/>
+    </linearGradient>
+    <clipPath id="circleClip">
+      <circle cx="${avatarX + avatarSize/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
+    </clipPath>
+  </defs>
+  <rect width="100%" height="100%" rx="12" fill="url(#bgGrad)"/>
+  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatarUrl}" clip-path="url(#circleClip)"/>
+  <g ${animationAttr}>${animationElem}
+    <text x="${textStartX}" y="${height/2 + 5}" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">${escapeXml(nameText)}</text>
+    <text x="${textStartX + nameWidth + 20}" y="${height/2 + 5}" fill="${colors.rankColor}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="800">${rankText}</text>
+    <text x="${textStartX + nameWidth + 20 + rankWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Rank</text>
+    <text x="${textStartX + nameWidth + 40 + rankWidth}" y="${height/2 + 5}" fill="${colors.scoreColor}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="800">${scoreText}</text>
+    <text x="${textStartX + nameWidth + 40 + rankWidth + scoreWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Score</text>
   </g>
 </svg>`;
 
@@ -172,8 +202,12 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username
-// SVG card: avatar, name, username, bio, rank, score, level, following, followers
+//  GET /api/card/:username
+//  Large profile card (600×450) with custom background designs:
+//  - Light theme: soft diagonal mesh gradient
+//  - Dark theme: glowing radial gradient + subtle grid pattern
+//  - Query: ?theme=light|dark (default dark)
+//  - Query: ?animated=true (fade/scale for rank/score)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -187,85 +221,124 @@ export const generateProfileCard = async (req, res) => {
       timeout: 5000,
     });
 
-    const { followers, following, bio, name, avatar_url } = rawUser;
+    const { followers, following, bio, name } = rawUser;
     const { rank, score } = scoreData;
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
-    const level = Math.floor(score);
-    const rankTitle = getRankTitle(score);
 
-    const width = 500;
-    const height = 320;
-    const avatarSize = 96;
+    const avatarUrl = `https://github.com/${username}.png?size=200`;
+
+    // Card dimensions – larger, breathable
+    const width = 600;
+    const height = 450;
+    const avatarSize = 110;
     const avatarX = width / 2 - avatarSize / 2;
-    const avatarY = 30;
+    const avatarY = 35;
 
-    const colors = theme === 'light' ? {
-      bgStart: '#f1f5f9',
-      bgEnd: '#e2e8f0',
-      textPrimary: '#0f172a',
-      textSecondary: '#475569',
-      textMuted: '#64748b',
-      rankColor: '#f97316',
-      scoreColor: '#3b82f6',
-      avatarGlow: '#cbd5e1',
-    } : {
-      bgStart: '#0f172a',
-      bgEnd: '#1e293b',
-      textPrimary: '#f8fafc',
-      textSecondary: '#cbd5e1',
-      textMuted: '#94a3b8',
-      rankColor: '#fbbf24',
-      scoreColor: '#60a5fa',
-      avatarGlow: '#334155',
-    };
+    // Custom background definitions
+    const bgDefs = theme === 'light'
+      ? `<linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+           <stop offset="0%" stop-color="#f9fafb"/>
+           <stop offset="50%" stop-color="#f3f4f6"/>
+           <stop offset="100%" stop-color="#e5e7eb"/>
+         </linearGradient>
+         <pattern id="mesh" patternUnits="userSpaceOnUse" width="40" height="40">
+           <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#d1d5db" stroke-width="0.5" opacity="0.3"/>
+         </pattern>`
+      : `<radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+           <stop offset="0%" stop-color="#1e293b"/>
+           <stop offset="100%" stop-color="#0f172a"/>
+         </radialGradient>
+         <pattern id="grid" patternUnits="userSpaceOnUse" width="30" height="30">
+           <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.4"/>
+         </pattern>`;
 
-    const animationAttr = animated ? 'opacity="0"' : '';
-    const fadeIn = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : '';
+    const bgFill = theme === 'light'
+      ? '<rect width="100%" height="100%" fill="url(#bgGrad)"/><rect width="100%" height="100%" fill="url(#mesh)"/>'
+      : '<rect width="100%" height="100%" fill="url(#bgGrad)"/><rect width="100%" height="100%" fill="url(#grid)"/>';
+
+    const colors = theme === 'light'
+      ? {
+          textPrimary: '#111827',
+          textSecondary: '#4b5563',
+          textMuted: '#6b7280',
+          rankGradStart: '#f97316',
+          rankGradEnd: '#f59e0b',
+          avatarGlow: '#cbd5e1',
+        }
+      : {
+          textPrimary: '#f1f5f9',
+          textSecondary: '#cbd5e1',
+          textMuted: '#94a3b8',
+          rankGradStart: '#fbbf24',
+          rankGradEnd: '#f59e0b',
+          avatarGlow: '#334155',
+        };
+
+    const rankAnimation = animated
+      ? `<animate attributeName="opacity" from="0" to="1" dur="0.5s" fill="freeze"/>
+         <animate attributeName="transform" type="scale" from="0.5" to="1" dur="0.4s" fill="freeze" additive="sum"/>`
+      : '';
+    const scoreAnimation = animated
+      ? `<animate attributeName="opacity" from="0" to="1" dur="0.5s" fill="freeze"/>
+         <animate attributeName="transform" type="scale" from="0.5" to="1" dur="0.4s" fill="freeze" additive="sum"/>`
+      : '';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${colors.bgStart}" />
-      <stop offset="100%" stop-color="${colors.bgEnd}" />
+    ${bgDefs}
+    <linearGradient id="rankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${colors.rankGradStart}" />
+      <stop offset="100%" stop-color="${colors.rankGradEnd}" />
     </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.2"/>
-    </filter>
-    <clipPath id="avatarClip">
+    <clipPath id="circleClip">
       <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
     </clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
   </defs>
 
-  <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  <!-- Background with custom pattern -->
+  ${bgFill}
 
-  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 6}" fill="${colors.avatarGlow}" opacity="0.4"/>
-  <image href="${escapeXml(avatar_url)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
+  <!-- Card shadow overlay (soft) -->
+  <rect width="100%" height="100%" rx="28" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
 
-  <g ${animationAttr}>${fadeIn}
-    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, sans-serif" font-size="14">@${escapeXml(username)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="system-ui, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
+  <!-- Avatar glow ring -->
+  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 8}" fill="${colors.avatarGlow}" opacity="0.4"/>
+  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatarUrl}" clip-path="url(#circleClip)" />
+
+  <!-- User info -->
+  <text x="${width/2}" y="${avatarY + avatarSize + 32}" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800">${escapeXml(displayName)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 56}" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, -apple-system, sans-serif" font-size="15">@${escapeXml(username)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 84}" text-anchor="middle" fill="${colors.textMuted}" font-family="system-ui, -apple-system, sans-serif" font-size="14">${escapeXml(shortBio)}</text>
+
+  <!-- Rank & Score (side by side) -->
+  <g transform="translate(${width/2 - 90}, ${height - 140})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? rankAnimation : ''}
+    <text x="0" y="0" text-anchor="middle" fill="url(#rankGrad)" font-family="'SF Mono', 'Courier New', monospace" font-size="68" font-weight="900">${rank}</text>
+    <text x="0" y="30" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="700">RANK</text>
   </g>
 
-  <g ${animationAttr}>${fadeIn}
-    <text x="${width/2 - 100}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="system-ui, sans-serif" font-size="36" font-weight="800">${escapeXml(rankTitle)}</text>
-    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.scoreColor}" font-family="system-ui, sans-serif" font-size="28" font-weight="800">${escapeXml(score)}</text>
-    <text x="${width/2 + 100}" y="240" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, sans-serif" font-size="20" font-weight="700">LV${escapeXml(level)}</text>
-
-    <text x="${width/2 - 100}" y="260" text-anchor="middle" fill="${colors.textMuted}" font-size="11">RANK</text>
-    <text x="${width/2}" y="260" text-anchor="middle" fill="${colors.textMuted}" font-size="11">SCORE</text>
-    <text x="${width/2 + 100}" y="260" text-anchor="middle" fill="${colors.textMuted}" font-size="11">LEVEL</text>
+  <g transform="translate(${width/2 + 90}, ${height - 140})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? scoreAnimation : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="900">${score}</text>
+    <text x="0" y="30" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="700">SCORE</text>
   </g>
 
-  <g transform="translate(${width/2 - 100}, 280)" ${animationAttr}>${fadeIn}
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Following</text>
+  <!-- Following & Followers -->
+  <g transform="translate(${width/2 - 160}, ${height - 55})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="22" font-weight="800">${following}</text>
+    <text x="0" y="24" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="600">Following</text>
   </g>
-  <g transform="translate(${width/2 + 100}, 280)" ${animationAttr}>${fadeIn}
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Followers</text>
+
+  <g transform="translate(${width/2 + 160}, ${height - 55})" ${animated ? 'opacity="0"' : ''}>
+    ${animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : ''}
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="22" font-weight="800">${followers}</text>
+    <text x="0" y="24" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="600">Followers</text>
   </g>
 </svg>`;
 
@@ -273,26 +346,25 @@ export const generateProfileCard = async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.send(svg);
   } catch (err) {
-    console.error('Card error:', err.message);
+    console.error('Card generation error:', err.message);
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
     const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
     const text = theme === 'light' ? '#111827' : '#f1f5f9';
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="500" height="320" viewBox="0 0 500 320">
-  <rect width="500" height="320" rx="20" fill="${bg}"/>
-  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
+  <rect width="600" height="300" rx="20" fill="${bg}"/>
+  <text x="300" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Unable to generate card — user not found or API error</text>
 </svg>`;
-    res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
+    res.status(404).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
 };
 
 // ----------------------------------------------------------------------
-// Helper: safe XML escape
+//  Helper: escape XML special characters (security)
 // ----------------------------------------------------------------------
 function escapeXml(str) {
-  if (str == null) return '';
-  const s = String(str);
-  return s.replace(/[<>&'"]/g, (ch) => {
+  if (!str) return '';
+  return str.replace(/[<>&'"]/g, (ch) => {
     switch (ch) {
       case '<': return '&lt;';
       case '>': return '&gt;';
