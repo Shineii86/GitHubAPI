@@ -45,7 +45,7 @@
 
 ## 🧠 Overview
 
-**GitHubAPI** transforms raw GitHub data into actionable developer insights. It combines **REST + GraphQL** endpoints, calculates a weighted **developer score (0–100)**, assigns a **rank (D to SSS)**, tracks contribution streaks, analyzes languages, and optionally provides **AI‑powered summaries**.
+**GitHubAPI** transforms raw GitHub data into actionable developer insights. It combines **REST + GraphQL** endpoints, calculates a weighted **developer score (0–100)**, assigns a **game‑style rank** (GODLIKE down to BEGINNER), tracks contribution streaks, analyzes languages, and optionally provides **AI‑powered summaries**.
 
 Perfect for:
 - 📈 Portfolio reviews & resume boosting
@@ -59,12 +59,12 @@ Perfect for:
 
 | Feature | Description | Emoji |
 |---------|-------------|-------|
-| **Advanced Scoring** | 8 metrics → 0–100 score + rank (D–SSS) | 🧮 |
+| **Advanced Scoring** | 8 metrics → 0–100 score + game rank (GODLIKE → BEGINNER) | 🧮 |
 | **Contribution Streak** | Real current & longest streak from GraphQL calendar | 🔥 |
 | **AI Summaries** | GPT‑4o mini strengths/weaknesses analysis (optional) | 🤖 |
 | **Compare Users** | Side‑by‑side comparison of two developers | ⚖️ |
-| **SVG Badge** | Embeddable badge with avatar, rank & score – supports `?theme=light/dark` & `?animated=true` | 🖼️ |
-| **Profile Card** | Beautiful animated SVG card (600×450) with custom backgrounds, themes & animations | 🃏 |
+| **SVG Badge** | Embeddable badge with avatar, rank & level – **no animation** | 🖼️ |
+| **Profile Card** | Beautiful animated SVG card (500×350) with **custom backgrounds**, theme overlays & Google Sans font | 🃏 |
 | **Redis Caching** | 5‑minute cache to reduce API calls (optional) | 🗄️ |
 | **Serverless Ready** | Deploy to Vercel in one click | 🌐 |
 | **Interactive Web UI** | Built‑in frontend to test the API live | 🌍 |
@@ -79,14 +79,15 @@ Perfect for:
 The built‑in web UI (included in this repo at `/public/index.html`) lets you:
 - Enter any GitHub username and see the full JSON response
 - Compare two users side‑by‑side
-- Toggle light/dark theme and animations for the profile card
+- Toggle light/dark theme for the profile card
+- Select custom backgrounds (1–6) for the card
 - Copy cURL commands
 
 ---
 
 ## 📊 Scoring System
 
-The developer score is calculated using 8 weighted metrics. Below is the scoring flow:
+The developer score is calculated using 8 weighted metrics. Below is the scoring flow and the rank mapping:
 
 ```mermaid
 flowchart TD
@@ -104,15 +105,34 @@ flowchart TD
     K --> L[Apply weights & sum]
     L --> M[Final Score 0-100]
     M --> N{Rank Mapping}
-    N --> O[90-100: SSS]
-    N --> P[80-89: SS]
-    N --> Q[70-79: S]
-    N --> R[60-69: A]
-    N --> S[50-59: B]
-    N --> T[40-49: C]
-    N --> U[30-39: D]
-    N --> V[<30: F]
+    N --> O[100: GODLIKE]
+    N --> P[90-99: MYTHIC]
+    N --> Q[80-89: LEGEND]
+    N --> R[70-79: GRANDMASTER]
+    N --> S[60-69: MASTER]
+    N --> T[50-59: ELITE]
+    N --> U[40-49: EXPERT]
+    N --> V[30-39: DEVELOPER]
+    N --> W[20-29: APPRENTICE]
+    N --> X[10-19: NOVICE]
+    N --> Y[0-9: BEGINNER]
 ```
+
+### Rank Details Table
+
+| Score Range | Rank Name | Level Display |
+|-------------|-----------|----------------|
+| 100 | GODLIKE | LV100 |
+| 90–99 | MYTHIC | LV90–99 |
+| 80–89 | LEGEND | LV80–89 |
+| 70–79 | GRANDMASTER | LV70–79 |
+| 60–69 | MASTER | LV60–69 |
+| 50–59 | ELITE | LV50–59 |
+| 40–49 | EXPERT | LV40–49 |
+| 30–39 | DEVELOPER | LV30–39 |
+| 20–29 | APPRENTICE | LV20–29 |
+| 10–19 | NOVICE | LV10–19 |
+| 0–9 | BEGINNER | LV0–9 |
 
 ---
 
@@ -170,7 +190,7 @@ curl https://githubsmartapi.vercel.app/api/user/octocat
 {
   "username": "octocat",
   "score": 68,
-  "rank": "B",
+  "rank": "MASTER",
   "profile": {
     "followers": 5,
     "publicRepos": 8,
@@ -189,7 +209,7 @@ curl https://githubsmartapi.vercel.app/api/user/octocat
     "Ruby": 1
   },
   "aiSummary": "Moderate activity with room for growth. Good language diversity.",
-  "fetchedAt": "2026-04-04T12:00:00.000Z",
+  "fetchedAt": "2026-04-05T12:00:00.000Z",
   "cached": false
 }
 ```
@@ -205,31 +225,39 @@ curl https://githubsmartapi.vercel.app/api/compare/octocat/gaearon
 
 ### `GET /api/badge/:username`
 
-Returns an SVG badge with **profile photo, username, rank and score**.  
-Supports optional query parameters:
+Returns an SVG badge with **profile photo, username, rank and level** (e.g., `MYTHIC • LV90`).  
+**Animation has been removed** – the badge renders instantly.
 
 | Query param | Values | Default | Description |
 |-------------|--------|---------|-------------|
 | `theme` | `dark`, `light` | `dark` | Colour scheme (light = grey background, dark = dark background) |
-| `animated` | `true`, `false` | `false` | Fade‑in animation |
+
+> ⚠️ The `animated` parameter is **no longer supported** – the badge appears immediately.
 
 **Example usage in Markdown:**
 ```markdown
-![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/octocat?theme=light&animated=true)
+![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/octocat?theme=light)
 ```
 
 ### `GET /api/card/:username`
 
-Returns a **large animated SVG profile card** (600×450) with avatar, stats, rank, score, and custom background designs.
+Returns a **large animated SVG profile card** (500×350) with avatar, stats, rank, score, and **custom background support**.
 
 | Query param | Values | Default | Description |
 |-------------|--------|---------|-------------|
-| `theme` | `dark`, `light` | `dark` | Colour scheme (light = soft mesh gradient, dark = radial + grid) |
-| `animated` | `true`, `false` | `false` | Fade‑in + scale animation for rank/score |
+| `theme` | `dark`, `light` | `dark` | Colour scheme for text & overlay |
+| `bgImage` | `1`, `2`, `3`, … | (none) | Use one of the pre‑configured custom backgrounds (up to 6 images) |
+| `animated` | `true`, `false` | `false` | Fade‑in + scale animation for the whole card |
 
-**Example:**
+> 💡 **Custom backgrounds** are automatically overlaid with a semi‑transparent color (white for light theme, black for dark theme) to keep text readable. No extra parameters needed – the overlay adapts to your `theme`.
+
+**Example usage in Markdown:**
 ```markdown
-![Profile Card](https://githubsmartapi.vercel.app/api/card/octocat?theme=light&animated=true)
+<!-- Default gradient card (dark theme, animated) -->
+![Profile Card](https://githubsmartapi.vercel.app/api/card/octocat?theme=dark&animated=true)
+
+<!-- Custom background #3 with light theme -->
+![Profile Card](https://githubsmartapi.vercel.app/api/card/octocat?bgImage=3&theme=light)
 ```
 
 ---
@@ -278,6 +306,7 @@ curl -s https://githubsmartapi.vercel.app/api/user/octocat | jq '.score, .rank'
 | API Clients    | Axios + GraphQL | ![Axios](https://img.shields.io/badge/Axios-1.x-5A29E4?logo=axios) |
 | AI Integration | OpenAI (GPT‑4o mini) | ![OpenAI](https://img.shields.io/badge/OpenAI-GPT4o-412991?logo=openai) |
 | Caching        | Redis (ioredis) | ![Redis](https://img.shields.io/badge/Redis-Upstash-DC382D?logo=redis) |
+| Fonts          | Google Sans | ![Google Sans](https://img.shields.io/badge/Font-Google_Sans-4285F4?logo=googlefonts) |
 | Deployment     | Vercel / Docker | ![Vercel](https://img.shields.io/badge/Vercel-Serverless-000000?logo=vercel) |
 
 ---
@@ -295,8 +324,8 @@ graph LR
     Scoring -->|Score & Rank| AI[AI Service<br/>Optional]
     AI -->|Summary| Controller
     Controller -->|JSON Response| Client
-    Controller -->|SVG| Badge[Badge Generator]
-    Controller -->|SVG| Card[Profile Card]
+    Controller -->|SVG| Badge[Badge Generator<br/>No Animation]
+    Controller -->|SVG| Card[Profile Card<br/>Custom Backgrounds]
 ```
 
 ---
@@ -397,6 +426,6 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ![Last Commit](https://img.shields.io/github/last-commit/Shineii86/GitHubAPI?style=for-the-badge)
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B7,100:3B82F6&height=100&section=footer" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B9,100:3B82F6&height=100&section=footer" width="100%"/>
   
 </div>
