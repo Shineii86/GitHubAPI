@@ -2,7 +2,7 @@
  * User controller – all endpoints with iOS fonts, game‑style ranks, base64 avatars.
  * 
  * Features:
- * - JSON analysis (/api/user/:username) with advanced scoring (0–100 + rank D–SSS)
+ * - JSON analysis (/api/user/:username) with advanced Level (LV0–100 + rank GOGLIKE)
  * - Side‑by‑side comparison (/api/compare/:user1/:user2)
  * - SVG badge (/api/badge/:username) – avatar, name, game rank with level (e.g., "MYTHIC • LV90")
  * - SVG profile card (/api/card/:username) – avatar, name, username + level, rank name only, following/followers, watermark
@@ -11,7 +11,7 @@
  * - Light/dark themes via query parameters
  * - iOS‑optimised font stack and base64‑embedded avatars for reliability
  * - Card supports unlimited custom background images (query param ?bgImage=1,2,3,…) – hardcoded array
- * - Custom backgrounds: raw image, NO theme overlay, NO gradient
+ * - Custom backgrounds are fetched and embedded as base64 (bypasses CORS & external loading issues)
  * - Badge has no animation (removed)
  * 
  * Author: Shinei Nouzen (@Shineii86)
@@ -40,6 +40,24 @@ const CUSTOM_BG = [
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',   // ?bgImage=6
   // Add more URLs below...
 ];
+
+// ----------------------------------------------------------------------
+// Helper: fetch an image and convert to base64 (for reliable embedding)
+// ----------------------------------------------------------------------
+async function getBase64ImageFromUrl(url) {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+    });
+    const contentType = response.headers['content-type'];
+    const base64 = Buffer.from(response.data, 'binary').toString('base64');
+    return `data:${contentType};base64,${base64}`;
+  } catch (err) {
+    console.error('Failed to fetch background image:', url, err.message);
+    return null;
+  }
+}
 
 // ----------------------------------------------------------------------
 // Helper: get analysis + score (cached)
@@ -132,7 +150,7 @@ export const generateBadge = async (req, res) => {
     const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
 
-    const width = 450;
+    const width = 350;
     const height = 30;
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -163,7 +181,7 @@ export const generateBadge = async (req, res) => {
 // ----------------------------------------------------------------------
 // GET /api/card/:username – detailed card with optional custom background images
 // Query: ?bgImage=1,2,3,... (1‑based index into CUSTOM_BG array)
-// Custom backgrounds: raw image – NO theme overlay, NO gradient
+// Custom backgrounds are fetched and embedded as base64 (100% reliable)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -172,9 +190,11 @@ export const generateProfileCard = async (req, res) => {
     
     // Support any number of backgrounds via array index (1‑based)
     const bgImageIndex = parseInt(req.query.bgImage, 10);
-    let bgImageUrl = null;
+    let bgImageDataUrl = null;
     if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
-      bgImageUrl = CUSTOM_BG[bgImageIndex - 1];
+      const rawUrl = CUSTOM_BG[bgImageIndex - 1];
+      // Convert to base64 to avoid CORS and external loading issues
+      bgImageDataUrl = await getBase64ImageFromUrl(rawUrl);
     }
 
     const { analysis, scoreData } = await getUserAnalysisData(username);
@@ -216,13 +236,13 @@ export const generateProfileCard = async (req, res) => {
     };
 
     // Build background section: 
-    // - If custom image: use it directly without any overlay or gradient
+    // - If custom image (base64 embedded): use it directly without any overlay or gradient
     // - Else: use theme gradient
     let backgroundSvg = '';
-    if (bgImageUrl) {
+    if (bgImageDataUrl) {
       backgroundSvg = `
-    <!-- Custom background image (no theme overlay, no gradient) -->
-    <image href="${escapeXml(bgImageUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+    <!-- Custom background image (base64 embedded – no external requests, no CORS) -->
+    <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
       `;
     } else {
       backgroundSvg = `
