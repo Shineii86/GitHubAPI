@@ -236,7 +236,7 @@ export const generateProfileCard = async (req, res) => {
     const generateHeatmap = (grid, startX, startY) => {
       const cellSize = 10;
       const gap = 4;
-      if (!grid.length) return '';
+      if (!grid || !grid.length) return '';
       return grid.map((week, wi) =>
         week.map((count, di) => {
           const opacity = count === 0 ? 0.12 : Math.min(0.3 + count / 8, 0.95);
@@ -364,18 +364,19 @@ export const generateProfileCard = async (req, res) => {
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
   <rect width="600" height="300" rx="20" fill="${bg}"/>
-  <text x="300" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Error: ${escapeXml(err.message)}</text>
+  <text x="300" y="160" text-anchor="middle" fill="#ef4444" font-family="system-ui, sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
 };
 
 // ----------------------------------------------------------------------
-//  Helper: escape XML special characters (security)
+//  Helper: escape XML special characters (security) – SAFE version
 // ----------------------------------------------------------------------
 function escapeXml(str) {
-  if (!str) return '';
-  return str.replace(/[<>&'"]/g, (ch) => {
+  // Convert to string if not already, and handle null/undefined
+  const input = str == null ? '' : String(str);
+  return input.replace(/[<>&'"]/g, (ch) => {
     switch (ch) {
       case '<': return '&lt;';
       case '>': return '&gt;';
