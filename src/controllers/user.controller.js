@@ -8,8 +8,10 @@
  * - SVG profile card (/api/card/:username) – avatar, name, username + level, rank name only, following/followers, watermark
  * - Optional AI summaries (OpenAI)
  * - Redis caching (5 min TTL)
- * - Light/dark themes and animations via query parameters
+ * - Light/dark themes via query parameters
  * - iOS‑optimised font stack and base64‑embedded avatars for reliability
+ * - Card supports two custom background images (query param ?bgImage=1 or 2)
+ * - Badge has no animation (removed)
  * 
  * Author: Shinei Nouzen (@Shineii86)
  * License: MIT
@@ -23,6 +25,12 @@ import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
 import { getRankName, getRankWithBullet } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
+
+// ----------------------------------------------------------------------
+// Custom background images for the profile card
+// ----------------------------------------------------------------------
+const BG1 = 'https://i.ibb.co/v4QP01k3/file-177.jpg';
+const BG2 = 'https://i.ibb.co/BKztKc7F/file-178.jpg';
 
 // ----------------------------------------------------------------------
 // Helper: get analysis + score (cached)
@@ -89,13 +97,12 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username – avatar, name, rank with bullet (e.g., "MYTHIC • LV90")
+// GET /api/badge/:username – NO ANIMATION (avatar, name, rank with bullet)
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const animated = req.query.animated === 'true';
 
     const { scoreData } = await getUserAnalysisData(username);
     const { score } = scoreData;
@@ -118,17 +125,14 @@ export const generateBadge = async (req, res) => {
 
     const width = 450;
     const height = 30;
-    const animation = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.3s" fill="freeze"/>` : '<g opacity="1">';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>${bgGradient}<clipPath id="c"><circle cx="18" cy="15" r="10"/></clipPath></defs>
   <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
   <image href="${escapeXml(avatarBase64)}" x="8" y="5" width="20" height="20" clip-path="url(#c)"/>
-  <g opacity="0">${animation}
-    <text x="36" y="19" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
-    <text x="150" y="19" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
-  </g>
+  <text x="36" y="19" fill="${textColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12">${escapeXml(nameText)}</text>
+  <text x="150" y="19" fill="${rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -148,13 +152,19 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – detailed card: level beside username, rank name only (no score)
+// GET /api/card/:username – detailed card with optional custom background images
+// Query: ?bgImage=1 or 2 (uses environment variables CARD_BG_IMAGE_1 / _2)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const animated = req.query.animated === 'true';
+    const bgImageChoice = req.query.bgImage === '1' ? 1 : (req.query.bgImage === '2' ? 2 : null);
+    
+    // Determine background image URL if requested
+    let bgImageUrl = null;
+    if (bgImageChoice === 1 && BG1) bgImageUrl = BG1;
+    if (bgImageChoice === 2 && BG2) bgImageUrl = BG2;
 
     const { analysis, scoreData } = await getUserAnalysisData(username);
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
@@ -177,6 +187,7 @@ export const generateProfileCard = async (req, res) => {
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 30;
 
+    // Color schemes (light / dark)
     const colors = theme === 'light' ? {
       bgStart: '#f1f5f9',
       bgEnd: '#e2e8f0',
@@ -186,6 +197,7 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#f97316',
       avatarGlow: '#cbd5e1',
       watermarkColor: '#9ca3af',
+      overlayColor: 'rgba(255,255,255,0.7)', // for custom bg images
     } : {
       bgStart: '#0f172a',
       bgEnd: '#1e293b',
@@ -195,10 +207,23 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#fbbf24',
       avatarGlow: '#334155',
       watermarkColor: '#64748b',
+      overlayColor: 'rgba(0,0,0,0.6)', // for custom bg images
     };
 
-    const animationAttr = animated ? 'opacity="0"' : '';
-    const fadeIn = animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : '';
+    // Build background section (either gradient or image + overlay)
+    let backgroundSvg = '';
+    if (bgImageUrl) {
+      backgroundSvg = `
+    <!-- Custom background image -->
+    <image href="${escapeXml(bgImageUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+    <!-- Overlay for text readability -->
+    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
+      `;
+    } else {
+      backgroundSvg = `
+    <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" />
+      `;
+    }
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -215,31 +240,33 @@ export const generateProfileCard = async (req, res) => {
     </clipPath>
   </defs>
 
-  <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" filter="url(#shadow)"/>
+  <!-- Background (gradient or custom image + overlay) -->
+  <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
+  ${backgroundSvg}
 
   <!-- Avatar glow & image -->
   <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 6}" fill="${colors.avatarGlow}" opacity="0.4"/>
   <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
 
   <!-- User info -->
-  <g ${animationAttr}>${fadeIn}
+  <g>
     <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
     <!-- Username + level -->
     <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
     <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
-  <!-- Rank name only (no level, no score) -->
-  <g ${animationAttr}>${fadeIn}
+  <!-- Rank name only -->
+  <g>
     <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
   <!-- Following & Followers -->
-  <g transform="translate(${width/2 - 100}, 280)" ${animationAttr}>${fadeIn}
+  <g transform="translate(${width/2 - 100}, 280)">
     <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(following)}</text>
     <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Following</text>
   </g>
-  <g transform="translate(${width/2 + 100}, 280)" ${animationAttr}>${fadeIn}
+  <g transform="translate(${width/2 + 100}, 280)">
     <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="18" font-weight="700">${escapeXml(followers)}</text>
     <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-size="11">Followers</text>
   </g>
