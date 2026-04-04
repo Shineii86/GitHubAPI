@@ -10,7 +10,8 @@
  * - Redis caching (5 min TTL)
  * - Light/dark themes via query parameters
  * - iOS‑optimised font stack and base64‑embedded avatars for reliability
- * - Card supports two custom background images (query param ?bgImage=1 or 2)
+ * - Card supports unlimited custom background images (query param ?bgImage=1,2,3,…) – hardcoded array
+ * - Custom backgrounds: raw image, NO theme overlay, NO gradient
  * - Badge has no animation (removed)
  * 
  * Author: Shinei Nouzen (@Shineii86)
@@ -27,10 +28,18 @@ import { getRankName, getRankWithBullet } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
-// Custom background images for the profile card
+// Custom background images for the profile card (hardcoded URLs)
+// Add as many as you want – index starts at 1 for query param ?bgImage=1
 // ----------------------------------------------------------------------
-const BG1 = 'https://i.ibb.co/v4QP01k3/file-177.jpg';
-const BG2 = 'https://i.ibb.co/BKztKc7F/file-178.jpg';
+const CUSTOM_BG = [
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',   // ?bgImage=1
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG2.png',   // ?bgImage=2
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG3.png',   // ?bgImage=3
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',   // ?bgImage=4
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',   // ?bgImage=5
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',   // ?bgImage=6
+  // Add more URLs below...
+];
 
 // ----------------------------------------------------------------------
 // Helper: get analysis + score (cached)
@@ -153,18 +162,20 @@ export const generateBadge = async (req, res) => {
 
 // ----------------------------------------------------------------------
 // GET /api/card/:username – detailed card with optional custom background images
-// Query: ?bgImage=1 or 2 (uses environment variables CARD_BG_IMAGE_1 / _2)
+// Query: ?bgImage=1,2,3,... (1‑based index into CUSTOM_BG array)
+// Custom backgrounds: raw image – NO theme overlay, NO gradient
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const bgImageChoice = req.query.bgImage === '1' ? 1 : (req.query.bgImage === '2' ? 2 : null);
     
-    // Determine background image URL if requested
+    // Support any number of backgrounds via array index (1‑based)
+    const bgImageIndex = parseInt(req.query.bgImage, 10);
     let bgImageUrl = null;
-    if (bgImageChoice === 1 && BG1) bgImageUrl = BG1;
-    if (bgImageChoice === 2 && BG2) bgImageUrl = BG2;
+    if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
+      bgImageUrl = CUSTOM_BG[bgImageIndex - 1];
+    }
 
     const { analysis, scoreData } = await getUserAnalysisData(username);
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
@@ -187,37 +198,31 @@ export const generateProfileCard = async (req, res) => {
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 30;
 
-    // Color schemes (light / dark)
+    // Color schemes for text & elements (background is overridden by custom image if used)
     const colors = theme === 'light' ? {
-      bgStart: '#f1f5f9',
-      bgEnd: '#e2e8f0',
       textPrimary: '#0f172a',
       textSecondary: '#475569',
       textMuted: '#64748b',
       rankColor: '#f97316',
       avatarGlow: '#cbd5e1',
       watermarkColor: '#9ca3af',
-      overlayColor: 'rgba(255,255,255,0.7)', // for custom bg images
     } : {
-      bgStart: '#0f172a',
-      bgEnd: '#1e293b',
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
       textMuted: '#94a3b8',
       rankColor: '#fbbf24',
       avatarGlow: '#334155',
       watermarkColor: '#64748b',
-      overlayColor: 'rgba(0,0,0,0.6)', // for custom bg images
     };
 
-    // Build background section (either gradient or image + overlay)
+    // Build background section: 
+    // - If custom image: use it directly without any overlay or gradient
+    // - Else: use theme gradient
     let backgroundSvg = '';
     if (bgImageUrl) {
       backgroundSvg = `
-    <!-- Custom background image -->
+    <!-- Custom background image (no theme overlay, no gradient) -->
     <image href="${escapeXml(bgImageUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
-    <!-- Overlay for text readability -->
-    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
       `;
     } else {
       backgroundSvg = `
@@ -229,8 +234,8 @@ export const generateProfileCard = async (req, res) => {
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${colors.bgStart}" />
-      <stop offset="100%" stop-color="${colors.bgEnd}" />
+      <stop offset="0%" stop-color="${theme === 'light' ? '#f1f5f9' : '#0f172a'}" />
+      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#1e293b'}" />
     </linearGradient>
     <filter id="shadow">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.2"/>
@@ -240,7 +245,7 @@ export const generateProfileCard = async (req, res) => {
     </clipPath>
   </defs>
 
-  <!-- Background (gradient or custom image + overlay) -->
+  <!-- Background (custom image or gradient) -->
   <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
   ${backgroundSvg}
 
