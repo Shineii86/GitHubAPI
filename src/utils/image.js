@@ -2,9 +2,8 @@ import axios from 'axios';
 
 /**
  * Convert an image URL to base64 data URI.
- * Useful for embedding avatars directly into SVGs (bypasses external image blocking).
- * @param {string} url - Image URL (e.g., GitHub avatar)
- * @returns {Promise<string>} Base64 data URI
+ * @param {string} url - Image URL
+ * @returns {Promise<string>} base64 data URI
  */
 export async function getBase64Image(url) {
   try {
@@ -14,7 +13,6 @@ export async function getBase64Image(url) {
     return `data:${contentType};base64,${base64}`;
   } catch (err) {
     console.error('Failed to fetch image:', err.message);
-    // Fallback to a transparent pixel or return original URL
-    return url;
+    return url; // fallback to original URL
   }
 }
