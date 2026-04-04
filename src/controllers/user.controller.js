@@ -1,23 +1,125 @@
 /**
+ * Request handlers for user analysis, comparison, badges, and profile cards.
+ */
+import axios from 'axios';
+import { fetchGitHubData, fetchContributions } from '../services/github.service.js';
+import { analyzeUser } from '../services/analysis.service.js';
+import { calculateScore } from '../services/scoring.service.js';
+import { generateAISummary } from '../services/ai.service.js';
+import { getCached, setCached } from '../services/cache.service.js';
+
+/**
+ * Helper to get all analysis data for a user (without caching logic).
+ */
+export const getUserAnalysisData = async (username) => {
+  const githubData = await fetchGitHubData(username);
+  const contributions = await fetchContributions(username);
+  const analysis = analyzeUser(githubData, contributions);
+  const scoreData = calculateScore(analysis);
+  return { analysis, scoreData };
+};
+
+/**
+ * GET /api/user/:username
+ */
+export const getUserAnalysis = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const cached = await getCached(`user:${username}`);
+    if (cached) {
+      return res.json({ ...cached, cached: true });
+    }
+
+    const { analysis, scoreData } = await getUserAnalysisData(username);
+
+    let aiSummary = null;
+    if (process.env.OPENAI_API_KEY) {
+      aiSummary = await generateAISummary(analysis, scoreData);
+    }
+
+    const response = {
+      username,
+      score: scoreData.score,
+      rank: scoreData.rank,
+      profile: analysis.profile,
+      stats: analysis.stats,
+      topLanguages: analysis.languages,
+      aiSummary,
+      fetchedAt: new Date().toISOString(),
+    };
+
+    await setCached(`user:${username}`, response, 300);
+    res.json(response);
+  } catch (err) {
+    console.error(err);
+    const status = err.response?.status === 404 ? 404 : 500;
+    const message = err.response?.status === 404 ? 'GitHub user not found' : err.message;
+    res.status(status).json({ error: message });
+  }
+};
+
+/**
+ * GET /api/compare/:user1/:user2
+ */
+export const compareUsers = async (req, res) => {
+  try {
+    const { user1, user2 } = req.params;
+    const [data1, data2] = await Promise.all([
+      getUserAnalysisData(user1),
+      getUserAnalysisData(user2),
+    ]);
+
+    res.json({
+      user1: { username: user1, ...data1.analysis, ...data1.scoreData },
+      user2: { username: user2, ...data2.analysis, ...data2.scoreData },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /api/badge/:username
+ * Simple horizontal badge (original)
+ */
+export const generateBadge = async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { scoreData } = await getUserAnalysisData(username);
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="40" viewBox="0 0 280 40">
+  <rect width="280" height="40" fill="#2d2d2d" rx="8"/>
+  <text x="12" y="25" fill="white" font-family="monospace" font-size="14">${escapeXml(username)}</text>
+  <text x="180" y="25" fill="#ffcc00" font-family="monospace" font-size="14" font-weight="bold">${scoreData.rank}</text>
+  <text x="230" y="25" fill="#ffffff" font-family="monospace" font-size="14">${scoreData.score}</text>
+</svg>`;
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svg);
+  } catch (err) {
+    console.error('Badge error:', err.message);
+    res.status(500).send('Error generating badge');
+  }
+};
+
+/**
  * GET /api/card/:username
- * Returns a professional SVG profile card with:
- * - Centered profile photo (avatar)
- * - Following & Followers counts
- * - Large GitHub rank letter
- * - GitHub score
+ * Professional profile card with photo, following/followers, rank, score
  */
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
 
-    // Fetch user data (we already have analysis + scoreData)
+    // 1. Get analysis & score
     const { analysis, scoreData } = await getUserAnalysisData(username);
-    
-    // Additional user data from GitHub (avatar, following, bio)
-    // We need the raw user object – we can re-fetch or extend analysis.
-    // For simplicity, we call GitHub REST again (but could be cached).
+
+    // 2. Fetch raw user data for avatar, following, bio (reuse token)
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
+      timeout: 5000,
     });
 
     const {
@@ -39,7 +141,6 @@ export const generateProfileCard = async (req, res) => {
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 40;
 
-    // SVG markup – modern card with gradient background
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
@@ -59,19 +160,14 @@ export const generateProfileCard = async (req, res) => {
     </filter>
   </defs>
 
-  <!-- Background -->
   <rect width="100%" height="100%" rx="16" fill="url(#bgGrad)" filter="url(#shadow)"/>
-
-  <!-- Avatar circle background (glow) -->
   <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 4}" fill="#3a3a4e" />
   <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatar_url}" clip-path="url(#circleClip)" />
 
-  <!-- Username & name -->
   <text x="${width/2}" y="${avatarY + avatarSize + 25}" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="18" font-weight="bold">${escapeXml(displayName)}</text>
   <text x="${width/2}" y="${avatarY + avatarSize + 45}" text-anchor="middle" fill="#aaaaaa" font-family="Arial, sans-serif" font-size="13">@${escapeXml(username)}</text>
   <text x="${width/2}" y="${avatarY + avatarSize + 70}" text-anchor="middle" fill="#cccccc" font-family="Arial, sans-serif" font-size="12">${escapeXml(shortBio)}</text>
 
-  <!-- Following & Followers (side by side) -->
   <g transform="translate(${width/2 - 120}, ${height - 90})">
     <text x="0" y="0" text-anchor="middle" fill="#ffffff" font-size="16" font-weight="bold">${following}</text>
     <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="12">Following</text>
@@ -81,13 +177,11 @@ export const generateProfileCard = async (req, res) => {
     <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="12">Followers</text>
   </g>
 
-  <!-- Rank (large letter) -->
   <g transform="translate(${width/2 - 70}, ${height - 100})">
     <text x="0" y="0" text-anchor="middle" fill="url(#rankGrad)" font-family="'Courier New', monospace" font-size="48" font-weight="bold">${rank}</text>
     <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="10">RANK</text>
   </g>
 
-  <!-- Score (numeric) -->
   <g transform="translate(${width/2 + 70}, ${height - 100})">
     <text x="0" y="0" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="36" font-weight="bold">${score}</text>
     <text x="0" y="20" text-anchor="middle" fill="#aaaaaa" font-size="10">SCORE</text>
@@ -99,7 +193,7 @@ export const generateProfileCard = async (req, res) => {
     res.send(svg);
   } catch (err) {
     console.error('Card generation error:', err.message);
-    // Fallback error SVG
+    // Send a graceful fallback SVG
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
   <rect width="400" height="200" fill="#2d2d2d" rx="12"/>
@@ -109,7 +203,9 @@ export const generateProfileCard = async (req, res) => {
   }
 };
 
-// Helper function to escape XML special characters (already defined above, but keep)
+/**
+ * Helper: escape XML special characters
+ */
 function escapeXml(str) {
   if (!str) return '';
   return str.replace(/[<>&'"]/g, (ch) => {
