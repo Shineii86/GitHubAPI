@@ -150,7 +150,7 @@ export const generateBadge = async (req, res) => {
     const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
 
-    const width = 200;
+    const width = 250;
     const height = 30;
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
