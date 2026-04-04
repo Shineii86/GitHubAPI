@@ -13,7 +13,8 @@
 
 [![Live Preview](https://img.shields.io/badge/🚀_Live_API-Preview-FF6B6B?style=for-the-badge)](https://githubsmartapi.vercel.app/)
   
-[![GitHub Stars](https://img.shields.io/github/stars/Shineii86/AlisaReactionBot?style=for-the-badge)](https://github.com/Shineii86/AlisaReactionBot/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/Shineii86/GitHubAPI?style=for-the-badge)](https://github.com/Shineii86/GitHubAPI/fork)
+[![GitHub Stars](https://img.shields.io/github/stars/Shineii86/GitHubAPI?style=for-the-badge)](https://github.com/Shineii86/GitHubAPI/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/Shineii86/GitHubAPI?style=for-the-badge)](https://github.com/Shineii86/GitHubAPI/fork)
 [![Issues](https://img.shields.io/github/issues/Shineii86/GitHubAPI?style=for-the-badge)](https://github.com/Shineii86/GitHubAPI/issues)
 </div>
 
@@ -37,7 +38,7 @@
 - [⚙️ Configuration](#️-configuration)
 - [☁️ Deployment](#️-deployment)
 - [🤝 Contributing](#-contributing)
-- [💳 Support & Sponsorship](#-support--sponsorship)
+- [💳 Support](#-support--sponsorship)
 - [📄 License](#-license)
 
 ---
@@ -62,10 +63,11 @@ Perfect for:
 | **Contribution Streak** | Real current & longest streak from GraphQL calendar | 🔥 |
 | **AI Summaries** | GPT‑4o mini strengths/weaknesses analysis (optional) | 🤖 |
 | **Compare Users** | Side‑by‑side comparison of two developers | ⚖️ |
-| **SVG Badge** | Embeddable badge for GitHub profiles / READMEs | 🖼️ |
-| **Profile Card** | Beautiful animated SVG profile card with avatar & stats | 🃏 |
+| **SVG Badge** | Embeddable badge with avatar, rank & score – supports `?theme=light/dark` & `?animated=true` | 🖼️ |
+| **Profile Card** | Beautiful animated SVG card (600×450) with custom backgrounds, themes & animations | 🃏 |
 | **Redis Caching** | 5‑minute cache to reduce API calls (optional) | 🗄️ |
 | **Serverless Ready** | Deploy to Vercel in one click | 🌐 |
+| **Interactive Web UI** | Built‑in frontend to test the API live | 🌍 |
 
 ---
 
@@ -74,11 +76,11 @@ Perfect for:
 > **Try the API instantly without writing any code!**  
 > 👉 [**Launch Interactive API Preview**](https://githubsmartapi.vercel.app)
 
-The live preview tool (included in this repo at `/public/preview.html`) lets you:
+The built‑in web UI (included in this repo at `/public/index.html`) lets you:
 - Enter any GitHub username and see the full JSON response
 - Compare two users side‑by‑side
+- Toggle light/dark theme and animations for the profile card
 - Copy cURL commands
-- View formatted response with syntax highlighting
 
 ---
 
@@ -143,6 +145,8 @@ nano .env
 npm run dev
 ```
 
+The API will run at `http://localhost:3000` and the frontend will be served at the same address.
+
 ---
 
 ## 📡 API Documentation
@@ -192,7 +196,7 @@ curl https://githubsmartapi.vercel.app/api/user/octocat
 
 ### `GET /api/compare/:user1/:user2`
 
-Returns side‑by‑side comparison.
+Returns side‑by‑side comparison of two users.
 
 **Example:**
 ```bash
@@ -201,21 +205,27 @@ curl https://githubsmartapi.vercel.app/api/compare/octocat/gaearon
 
 ### `GET /api/badge/:username`
 
-Returns an SVG badge (username, rank, score) for embedding.
+Returns an SVG badge with **profile photo, username, rank and score**.  
+Supports optional query parameters:
 
-**Example markdown:**
+| Query param | Values | Default | Description |
+|-------------|--------|---------|-------------|
+| `theme` | `dark`, `light` | `dark` | Colour scheme (light = grey background, dark = dark background) |
+| `animated` | `true`, `false` | `false` | Fade‑in animation |
+
+**Example usage in Markdown:**
 ```markdown
-![GitHubAPI score](https://githubsmartapi.vercel.app/api/badge/octocat)
+![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/octocat?theme=light&animated=true)
 ```
 
 ### `GET /api/card/:username`
 
-Returns an animated SVG profile card.
+Returns a **large animated SVG profile card** (600×450) with avatar, stats, rank, score, and custom background designs.
 
 | Query param | Values | Default | Description |
 |-------------|--------|---------|-------------|
-| `theme` | `dark`, `light` | `dark` | Colour scheme |
-| `animated` | `true`, `false` | `false` | Fade‑in animation |
+| `theme` | `dark`, `light` | `dark` | Colour scheme (light = soft mesh gradient, dark = radial + grid) |
+| `animated` | `true`, `false` | `false` | Fade‑in + scale animation for rank/score |
 
 **Example:**
 ```markdown
@@ -286,6 +296,7 @@ graph LR
     AI -->|Summary| Controller
     Controller -->|JSON Response| Client
     Controller -->|SVG| Badge[Badge Generator]
+    Controller -->|SVG| Card[Profile Card]
 ```
 
 ---
@@ -367,12 +378,12 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 
 🚨 [Follow me on GitHub](https://github.com/Shineii86)
 
-⭐ [Give a star to this project](https://github.com/Shineii86/Telegram-Card/)
+⭐ [Give a star to this project](https://github.com/Shineii86/GitHubAPI)
 
 <div align="center">
 
-<a href="https://github.com/Shineii86/Telegram-Card">
-<img src="https://github.com/Shineii86/AniPay/blob/main/Source/Banner6.png" alt="Banner">
+<a href="https://github.com/Shineii86/GitHubAPI">
+<img src="https://github.com/Shineii86/AniPay/blob/main/Source/Banner6.png" alt="Banner" width="600">
 </a>
   
   *For inquiries or collaborations*
