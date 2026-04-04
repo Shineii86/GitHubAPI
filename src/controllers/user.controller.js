@@ -113,7 +113,6 @@ export const generateBadge = async (req, res) => {
     const { scoreData } = await getUserAnalysisData(username);
     const { rank, score } = scoreData;
 
-    // Fetch user info for display name
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
       timeout: 5000,
@@ -121,7 +120,6 @@ export const generateBadge = async (req, res) => {
     const avatarUrl = `https://github.com/${username}.png?size=64`;
     const displayName = rawUser.name || username;
 
-    // Theme colours
     const colors = theme === 'light'
       ? {
           bgStart: '#f8fafc',
@@ -150,9 +148,8 @@ export const generateBadge = async (req, res) => {
     const rankText = `${rank}`;
     const scoreText = `${score}`;
 
-    // Approximate width
     const nameWidth = nameText.length * 8;
-    const rankWidth = rankText.length * 12 + 40; // +40 for "Rank" label
+    const rankWidth = rankText.length * 12 + 40;
     const scoreWidth = scoreText.length * 12 + 40;
     const totalWidth = textStartX + nameWidth + 30 + rankWidth + 30 + scoreWidth + 20;
 
@@ -162,7 +159,7 @@ export const generateBadge = async (req, res) => {
       : '';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="${colors.bgStart}"/>
@@ -173,13 +170,13 @@ export const generateBadge = async (req, res) => {
     </clipPath>
   </defs>
   <rect width="100%" height="100%" rx="12" fill="url(#bgGrad)"/>
-  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatarUrl}" clip-path="url(#circleClip)"/>
+  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" xlink:href="${avatarUrl}" clip-path="url(#circleClip)" />
   <g ${animationAttr}>${animationElem}
-    <text x="${textStartX}" y="${height/2 + 5}" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">${escapeXml(nameText)}</text>
-    <text x="${textStartX + nameWidth + 20}" y="${height/2 + 5}" fill="${colors.rankColor}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="800">${rankText}</text>
-    <text x="${textStartX + nameWidth + 20 + rankWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Rank</text>
-    <text x="${textStartX + nameWidth + 40 + rankWidth}" y="${height/2 + 5}" fill="${colors.scoreColor}" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="800">${scoreText}</text>
-    <text x="${textStartX + nameWidth + 40 + rankWidth + scoreWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500">Score</text>
+    <text x="${textStartX}" y="${height/2 + 5}" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600">${escapeXml(nameText)}</text>
+    <text x="${textStartX + nameWidth + 20}" y="${height/2 + 5}" fill="${colors.rankColor}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="800">${rankText}</text>
+    <text x="${textStartX + nameWidth + 20 + rankWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">Rank</text>
+    <text x="${textStartX + nameWidth + 40 + rankWidth}" y="${height/2 + 5}" fill="${colors.scoreColor}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="800">${scoreText}</text>
+    <text x="${textStartX + nameWidth + 40 + rankWidth + scoreWidth - 30}" y="${height/2 + 5}" fill="${colors.labelColor}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="500">Score</text>
   </g>
 </svg>`;
 
@@ -227,14 +224,12 @@ export const generateProfileCard = async (req, res) => {
 
     const avatarUrl = `https://github.com/${username}.png?size=200`;
 
-    // Card dimensions – larger, breathable
     const width = 600;
     const height = 450;
     const avatarSize = 110;
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 35;
 
-    // Custom background definitions
     const bgDefs = theme === 'light'
       ? `<linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
            <stop offset="0%" stop-color="#f9fafb"/>
@@ -284,7 +279,7 @@ export const generateProfileCard = async (req, res) => {
       : '';
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     ${bgDefs}
     <linearGradient id="rankGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -299,35 +294,28 @@ export const generateProfileCard = async (req, res) => {
     </filter>
   </defs>
 
-  <!-- Background with custom pattern -->
   ${bgFill}
-
-  <!-- Card shadow overlay (soft) -->
   <rect width="100%" height="100%" rx="28" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
 
-  <!-- Avatar glow ring -->
   <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 8}" fill="${colors.avatarGlow}" opacity="0.4"/>
-  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" href="${avatarUrl}" clip-path="url(#circleClip)" />
+  <image x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" xlink:href="${avatarUrl}" clip-path="url(#circleClip)" />
 
-  <!-- User info -->
-  <text x="${width/2}" y="${avatarY + avatarSize + 32}" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="800">${escapeXml(displayName)}</text>
-  <text x="${width/2}" y="${avatarY + avatarSize + 56}" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, -apple-system, sans-serif" font-size="15">@${escapeXml(username)}</text>
-  <text x="${width/2}" y="${avatarY + avatarSize + 84}" text-anchor="middle" fill="${colors.textMuted}" font-family="system-ui, -apple-system, sans-serif" font-size="14">${escapeXml(shortBio)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 32}" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="24" font-weight="800">${escapeXml(displayName)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 56}" text-anchor="middle" fill="${colors.textSecondary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="15">@${escapeXml(username)}</text>
+  <text x="${width/2}" y="${avatarY + avatarSize + 84}" text-anchor="middle" fill="${colors.textMuted}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14">${escapeXml(shortBio)}</text>
 
-  <!-- Rank & Score (side by side) -->
   <g transform="translate(${width/2 - 90}, ${height - 140})" ${animated ? 'opacity="0"' : ''}>
     ${animated ? rankAnimation : ''}
-    <text x="0" y="0" text-anchor="middle" fill="url(#rankGrad)" font-family="'SF Mono', 'Courier New', monospace" font-size="68" font-weight="900">${rank}</text>
+    <text x="0" y="0" text-anchor="middle" fill="url(#rankGrad)" font-family="'Courier New', monospace" font-size="68" font-weight="900">${rank}</text>
     <text x="0" y="30" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="700">RANK</text>
   </g>
 
   <g transform="translate(${width/2 + 90}, ${height - 140})" ${animated ? 'opacity="0"' : ''}>
     ${animated ? scoreAnimation : ''}
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="900">${score}</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="56" font-weight="900">${score}</text>
     <text x="0" y="30" text-anchor="middle" fill="${colors.textSecondary}" font-size="13" font-weight="700">SCORE</text>
   </g>
 
-  <!-- Following & Followers -->
   <g transform="translate(${width/2 - 160}, ${height - 55})" ${animated ? 'opacity="0"' : ''}>
     ${animated ? `<animate attributeName="opacity" from="0" to="1" dur="0.6s" fill="freeze"/>` : ''}
     <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-size="22" font-weight="800">${following}</text>
