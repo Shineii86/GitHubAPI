@@ -1,6 +1,6 @@
 <!-- Improved Header with Animated Badges -->
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B7,100:3B82F6&height=200&section=header&text=GitHubAPI&fontSize=70&fontColor=ffffff&animation=fadeIn" width="100%"/>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B7,100:3B82F6&height=200&section=header&text=𝗚𝗶𝘁𝗛𝘂𝗯𝗔𝗣𝗜&fontSize=70&fontColor=ffffff&animation=fadeIn" width="100%"/>
   
 *Smart GitHub Profile Analyzer & Scoring Engine*
   
@@ -178,17 +178,17 @@ All endpoints return JSON unless specified otherwise.
 Returns complete profile analysis with score, rank, stats, and optional AI summary.
 
 **Path parameter:**  
-- `username` – GitHub username (e.g., `octocat`)
+- `username` – GitHub username (e.g., `shineii86`)
 
 **Example request:**
 ```bash
-curl https://githubsmartapi.vercel.app/api/user/octocat
+curl https://githubsmartapi.vercel.app/api/user/shineii86
 ```
 
 **Example response:**
 ```json
 {
-  "username": "octocat",
+  "username": "shineii86",
   "score": 68,
   "rank": "MASTER",
   "profile": {
@@ -220,7 +220,7 @@ Returns side‑by‑side comparison of two users.
 
 **Example:**
 ```bash
-curl https://githubsmartapi.vercel.app/api/compare/octocat/gaearon
+curl https://githubsmartapi.vercel.app/api/compare/shineii86/gaearon
 ```
 
 ### `GET /api/badge/:username`
@@ -234,9 +234,14 @@ Returns an SVG badge with **profile photo, username, rank and level** (e.g., `MY
 
 > ⚠️ The `animated` parameter is **no longer supported** – the badge appears immediately.
 
+| **Light Badge Preview** | **Dark Badge Preview** |
+| ----------------------- | ---------------------- |
+| [![Light Badge](https://githubsmartapi.vercel.app/api/badge/Shineii86?theme=light)](https://githubsmartapi.vercel.app) | [![Light Dark](https://githubsmartapi.vercel.app/api/badge/Shineii86?theme=Dark)](https://githubsmartapi.vercel.app) |
+
+
 **Example usage in Markdown:**
 ```markdown
-![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/octocat?theme=light)
+![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/Shineii86?theme=light)
 ```
 
 ### `GET /api/card/:username`
@@ -251,13 +256,17 @@ Returns a **large animated SVG profile card** (500×350) with avatar, stats, ran
 
 > 💡 **Custom backgrounds** are automatically overlaid with a semi‑transparent color (white for light theme, black for dark theme) to keep text readable. No extra parameters needed – the overlay adapts to your `theme`.
 
+| **Light Card** | **Dark Card** | **Custom Card** |
+| ----------------------- | ---------------------- | ---------------------- |
+| [![Light Badge](https://githubsmartapi.vercel.app/api/card/Shineii86?theme=light)](https://githubsmartapi.vercel.app) | [![Light Dark](https://githubsmartapi.vercel.app/api/card/Shineii86?theme=Dark)](https://githubsmartapi.vercel.app) | [![Light Dark](https://githubsmartapi.vercel.app/api/card/Shineii86?bgImage=5&theme=dark)](https://githubsmartapi.vercel.app) |
+
 **Example usage in Markdown:**
 ```markdown
 <!-- Default gradient card (dark theme, animated) -->
-![Profile Card](https://githubsmartapi.vercel.app/api/card/octocat?theme=dark&animated=true)
+![Profile Card](https://githubsmartapi.vercel.app/api/card/shineii86?theme=dark&animated=true)
 
 <!-- Custom background #3 with light theme -->
-![Profile Card](https://githubsmartapi.vercel.app/api/card/octocat?bgImage=3&theme=light)
+![Profile Card](https://githubsmartapi.vercel.app/api/card/shineii86?bgImage=3&theme=light)
 ```
 
 ---
@@ -272,7 +281,7 @@ async function getUserAnalysis(username) {
   const data = await response.json();
   console.log(`${data.username} has score ${data.score} (rank ${data.rank})`);
 }
-getUserAnalysis('octocat');
+getUserAnalysis('shineii86');
 ```
 
 ### Python
@@ -286,13 +295,13 @@ def get_github_score(username):
     data = response.json()
     print(f"{data['username']}: {data['score']} points - Rank {data['rank']}")
 
-get_github_score('octocat')
+get_github_score('shineii86')
 ```
 
 ### cURL with jq
 
 ```bash
-curl -s https://githubsmartapi.vercel.app/api/user/octocat | jq '.score, .rank'
+curl -s https://githubsmartapi.vercel.app/api/user/shineii86 | jq '.score, .rank'
 ```
 
 ---
@@ -427,5 +436,4 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 ![Last Commit](https://img.shields.io/github/last-commit/Shineii86/GitHubAPI?style=for-the-badge)
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:6EE7B9,100:3B82F6&height=100&section=footer" width="100%"/>
-  
 </div>
