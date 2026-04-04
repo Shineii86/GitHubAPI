@@ -6,6 +6,7 @@ import {
   getUserAnalysis,
   compareUsers,
   generateBadge,
+  generateProfileCard,
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
@@ -17,7 +18,7 @@ router.get('/user/:username', getUserAnalysis);
 router.get('/compare/:user1/:user2', compareUsers);
 
 // SVG badge
-router.get('/badge/:username', generateBadge);
+router.get('/card/:username', generateProfileCard);
 
 // Health check / root (optional)
 router.get('/', (req, res) => {
