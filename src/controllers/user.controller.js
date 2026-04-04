@@ -1,5 +1,4 @@
 /**
-/**
  * Request handlers for user analysis, comparison, badges, and profile cards.
  * 
  * Features:
