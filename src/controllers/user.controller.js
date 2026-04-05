@@ -38,7 +38,6 @@ const CUSTOM_BG = [
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',   // ?bgImage=4
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',   // ?bgImage=5
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',   // ?bgImage=6
-  // Add more URLs below...
 ];
 
 // ----------------------------------------------------------------------
@@ -71,7 +70,7 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/user/:username – unchanged (keeps score for JSON)
+// GET /api/user/:username – now includes level, rankName, rankWithBullet
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
   try {
@@ -83,10 +82,19 @@ export const getUserAnalysis = async (req, res) => {
     if (process.env.OPENAI_API_KEY) {
       aiSummary = await generateAISummary(analysis, scoreData);
     }
+
+    // --- Ranks update: compute level and rank strings from score ---
+    const level = Math.floor(scoreData.score);
+    const rankName = getRankName(scoreData.score);
+    const rankWithBullet = getRankWithBullet(scoreData.score);
+
     const response = {
       username,
       score: scoreData.score,
-      rank: scoreData.rank,
+      rank: scoreData.rank,          // original numeric rank (e.g., "DIAMOND")
+      level,                         // new: integer floor of score
+      rankName,                      // new: rank name without level
+      rankWithBullet,                // new: rank name + " • LVxx"
       profile: analysis.profile,
       stats: analysis.stats,
       topLanguages: analysis.languages,
@@ -104,7 +112,7 @@ export const getUserAnalysis = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/compare/:user1/:user2 – unchanged
+// GET /api/compare/:user1/:user2 – now includes rank fields for both users
 // ----------------------------------------------------------------------
 export const compareUsers = async (req, res) => {
   try {
@@ -113,9 +121,24 @@ export const compareUsers = async (req, res) => {
       getUserAnalysisData(user1),
       getUserAnalysisData(user2),
     ]);
+
+    const enrich = (data, username) => {
+      const level = Math.floor(data.scoreData.score);
+      const rankName = getRankName(data.scoreData.score);
+      const rankWithBullet = getRankWithBullet(data.scoreData.score);
+      return {
+        username,
+        ...data.analysis,
+        ...data.scoreData,
+        level,
+        rankName,
+        rankWithBullet,
+      };
+    };
+
     res.json({
-      user1: { username: user1, ...data1.analysis, ...data1.scoreData },
-      user2: { username: user2, ...data2.analysis, ...data2.scoreData },
+      user1: enrich(data1, user1),
+      user2: enrich(data2, user2),
     });
   } catch (err) {
     console.error(err);
@@ -124,8 +147,7 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/badge/:username – NO ANIMATION (avatar, name, rank with bullet)
-// Uses Google Sans font
+// GET /api/badge/:username – unchanged (already uses rankWithBullet)
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -180,22 +202,17 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – detailed card with optional custom background images
-// Query: ?bgImage=1,2,3,... (1‑based index into CUSTOM_BG array)
-// Custom backgrounds are fetched and embedded as base64 + theme overlay
-// Uses Google Sans font
+// GET /api/card/:username – unchanged (already uses rankName and level)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
     
-    // Support any number of backgrounds via array index (1‑based)
     const bgImageIndex = parseInt(req.query.bgImage, 10);
     let bgImageDataUrl = null;
     if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
       const rawUrl = CUSTOM_BG[bgImageIndex - 1];
-      // Convert to base64 to avoid CORS and external loading issues
       bgImageDataUrl = await getBase64ImageFromUrl(rawUrl);
     }
 
@@ -210,7 +227,7 @@ export const generateProfileCard = async (req, res) => {
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
-    const rankName = getRankName(score); // e.g., "MYTHIC" (no level)
+    const rankName = getRankName(score);
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
@@ -220,7 +237,6 @@ export const generateProfileCard = async (req, res) => {
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 30;
 
-    // Color schemes for text & elements (background overlay uses same theme)
     const colors = theme === 'light' ? {
       textPrimary: '#0f172a',
       textSecondary: '#475569',
@@ -228,7 +244,7 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#f97316',
       avatarGlow: '#cbd5e1',
       watermarkColor: '#9ca3af',
-      overlayColor: 'rgba(255, 255, 255, 0.75)', // light overlay for custom background
+      overlayColor: 'rgba(255, 255, 255, 0.75)',
     } : {
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
@@ -236,18 +252,13 @@ export const generateProfileCard = async (req, res) => {
       rankColor: '#fbbf24',
       avatarGlow: '#334155',
       watermarkColor: '#64748b',
-      overlayColor: 'rgba(0, 0, 0, 0.65)', // dark overlay for custom background
+      overlayColor: 'rgba(0, 0, 0, 0.65)',
     };
 
-    // Build background section:
-    // - If custom image (base64 embedded): use image + theme overlay rectangle
-    // - Else: use theme gradient
     let backgroundSvg = '';
     if (bgImageDataUrl) {
       backgroundSvg = `
-    <!-- Custom background image (base64 embedded) -->
     <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
-    <!-- Theme overlay for readability -->
     <rect width="100%" height="100%" fill="${colors.overlayColor}" />
       `;
     } else {
@@ -271,28 +282,22 @@ export const generateProfileCard = async (req, res) => {
     </clipPath>
   </defs>
 
-  <!-- Background (custom image + overlay OR gradient) -->
   <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
   ${backgroundSvg}
 
-  <!-- Avatar glow & image -->
   <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 6}" fill="${colors.avatarGlow}" opacity="0.4"/>
   <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
 
-  <!-- User info -->
   <g>
     <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
-    <!-- Username + level -->
     <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
     <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
-  <!-- Rank name only -->
   <g>
     <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
-  <!-- Following & Followers -->
   <g transform="translate(${width/2 - 100}, 280)">
     <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(following)}</text>
     <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Following</text>
@@ -302,7 +307,6 @@ export const generateProfileCard = async (req, res) => {
     <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Followers</text>
   </g>
 
-  <!-- API Watermark -->
   <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
