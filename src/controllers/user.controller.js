@@ -12,6 +12,7 @@
  * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
  * - Light/dark themes via ?theme=light|dark
  * - Google Sans font stack (fallback to Product Sans, sans-serif)
+ * - AUTO-ADJUSTABLE SVG sizes for badges and profile cards (based on text length)
  * 
  * Author: Shinei Nouzen (@Shineii86)
  * License: MIT
@@ -64,6 +65,17 @@ export const getUserAnalysisData = async (username) => {
   const scoreData = calculateScore(analysis);
   return { analysis, scoreData };
 };
+
+// ----------------------------------------------------------------------
+// Helper: approximate text width in pixels for Google Sans / Product Sans
+// ----------------------------------------------------------------------
+function getTextWidth(text, fontSize) {
+  if (!text) return 0;
+  // Average character width factor for proportional font (Google Sans)
+  // At 12px, ~6.6px per char; factor 0.55 works well across sizes.
+  const avgCharWidth = fontSize * 0.55;
+  return text.length * avgCharWidth;
+}
 
 // ----------------------------------------------------------------------
 // Dynamic colors for rank names (based on your rank tiers)
@@ -180,7 +192,7 @@ export const compareUsers = async (req, res) => {
 
 // ----------------------------------------------------------------------
 // GET /api/badge/:username – avatar + name + rank with bullet (e.g., "MYTHIC • LV90")
-// Supports ?theme=light|dark (no animation)
+// Supports ?theme=light|dark - AUTO-ADJUSTABLE WIDTH based on name + rank text
 // ----------------------------------------------------------------------
 export const generateBadge = async (req, res) => {
   try {
@@ -196,7 +208,28 @@ export const generateBadge = async (req, res) => {
     });
     const avatarBase64 = await getBase64Image(rawUser.avatar_url);
     const displayName = rawUser.name || username;
-    const nameText = displayName.length > 14 ? displayName.slice(0, 11) + '...' : displayName;
+    // No truncation – let the badge expand to fit full name
+    const nameText = displayName;
+    const rankText = rankWithBullet;
+
+    const fontSize = 12;
+    const nameWidth = getTextWidth(nameText, fontSize);
+    const rankWidth = getTextWidth(rankText, fontSize);
+    
+    // Layout constants
+    const leftMargin = 8;
+    const avatarWidth = 20;
+    const avatarToNameGap = 8;   // space between avatar and name text (avatar x=8, width=20 => name start x=36)
+    const nameStartX = leftMargin + avatarWidth + avatarToNameGap; // 8+20+8 = 36
+    const nameEndX = nameStartX + nameWidth;
+    const nameToRankGap = 12;
+    const rankStartX = nameEndX + nameToRankGap;
+    const rightMargin = 8;
+    
+    let totalWidth = rankStartX + rankWidth + rightMargin;
+    // Ensure minimum width (e.g., very short names)
+    totalWidth = Math.max(totalWidth, 180);
+    const height = 30;
 
     const bgGradient = theme === 'light'
       ? '<linearGradient id="g" x2="0" y2="100%"><stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>'
@@ -205,16 +238,13 @@ export const generateBadge = async (req, res) => {
     const textColor = theme === 'light' ? '#0f172a' : '#f8fafc';
     const rankColor = theme === 'light' ? '#ea580c' : '#fbbf24';
 
-    const width = 250;
-    const height = 30;
-
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
   <defs>${bgGradient}<clipPath id="c"><circle cx="18" cy="15" r="10"/></clipPath></defs>
-  <rect width="${width}" height="${height}" rx="6" fill="url(#g)"/>
+  <rect width="${totalWidth}" height="${height}" rx="6" fill="url(#g)"/>
   <image href="${escapeXml(avatarBase64)}" x="8" y="5" width="20" height="20" clip-path="url(#c)"/>
-  <text x="36" y="19" fill="${textColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">${escapeXml(nameText)}</text>
-  <text x="150" y="19" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankWithBullet)}</text>
+  <text x="${nameStartX}" y="19" fill="${textColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">${escapeXml(nameText)}</text>
+  <text x="${rankStartX}" y="19" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -229,7 +259,7 @@ export const generateBadge = async (req, res) => {
 // ----------------------------------------------------------------------
 // GET /api/rank-badge/:username – shows "Rank MASTER" with separate colors:
 //   "Rank " in theme-aware gray, rank name in dynamic rank color
-// Supports ?theme=light|dark
+// Supports ?theme=light|dark - AUTO-ADJUSTABLE WIDTH
 // ----------------------------------------------------------------------
 export const generateRankBadge = async (req, res) => {
   try {
@@ -241,20 +271,26 @@ export const generateRankBadge = async (req, res) => {
     
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
     const strokeColor = theme === 'light' ? '#e2e8f0' : '#334155';
-    // Theme-aware label color: darker on light, lighter on dark
     const labelColor = theme === 'light' ? '#475569' : '#94a3b8';
     const rankColor = getRankColor(rankName);
 
     const labelText = "RANK ";
     const rankText = rankName;
-    const fullText = labelText + rankText;
-    const width = Math.max(90, fullText.length * 8 + 20);
-
+    const fontSize = 12;
+    
+    const labelWidth = getTextWidth(labelText, fontSize);
+    const rankWidth = getTextWidth(rankText, fontSize);
+    const leftPadding = 8;
+    const rightPadding = 8;
+    const totalWidth = leftPadding + labelWidth + rankWidth + rightPadding;
+    const labelX = leftPadding;
+    const rankX = leftPadding + labelWidth;
+    
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
-  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
-  <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
-  <text x="${8 + labelText.length * 7}" y="18" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankText)}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="28" viewBox="0 0 ${totalWidth} 28">
+  <rect width="${totalWidth}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
+  <text x="${labelX}" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
+  <text x="${rankX}" y="18" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -269,7 +305,7 @@ export const generateRankBadge = async (req, res) => {
 // ----------------------------------------------------------------------
 // GET /api/level-badge/:username – shows "Level 90" with separate colors:
 //   "Level " in theme-aware gray, level number in dynamic level color
-// Supports ?theme=light|dark
+// Supports ?theme=light|dark - AUTO-ADJUSTABLE WIDTH
 // ----------------------------------------------------------------------
 export const generateRankLevelBadge = async (req, res) => {
   try {
@@ -281,20 +317,26 @@ export const generateRankLevelBadge = async (req, res) => {
     
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
     const strokeColor = theme === 'light' ? '#e2e8f0' : '#334155';
-    // Theme-aware label color: darker on light, lighter on dark
     const labelColor = theme === 'light' ? '#475569' : '#94a3b8';
     const levelColor = getLevelColor(level);
 
     const labelText = "LEVEL ";
     const levelText = level.toString();
-    const fullText = labelText + levelText;
-    const width = Math.max(80, fullText.length * 8 + 20);
-
+    const fontSize = 12;
+    
+    const labelWidth = getTextWidth(labelText, fontSize);
+    const levelWidth = getTextWidth(levelText, fontSize);
+    const leftPadding = 8;
+    const rightPadding = 8;
+    const totalWidth = leftPadding + labelWidth + levelWidth + rightPadding;
+    const labelX = leftPadding;
+    const levelX = leftPadding + labelWidth;
+    
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
-  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
-  <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
-  <text x="${8 + labelText.length * 7}" y="18" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(levelText)}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="28" viewBox="0 0 ${totalWidth} 28">
+  <rect width="${totalWidth}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
+  <text x="${labelX}" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
+  <text x="${levelX}" y="18" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(levelText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -308,7 +350,7 @@ export const generateRankLevelBadge = async (req, res) => {
 
 // ----------------------------------------------------------------------
 // GET /api/card/:username – full profile card with optional custom background
-// Supports ?theme=light|dark, ?bgImage=1..6
+// Supports ?theme=light|dark, ?bgImage=1..6 - AUTO-ADJUSTABLE WIDTH based on text content
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
@@ -334,11 +376,28 @@ export const generateProfileCard = async (req, res) => {
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
     const rankName = getRankName(score);
+    const usernameLine = `@${username} • LV${level}`;
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
-    const width = 500;
-    const height = 350;
+    // Auto-adjust card width based on longest text element
+    const nameFontSize = 22;
+    const rankFontSize = 36;
+    const usernameFontSize = 14;
+    const bioFontSize = 13;
+    
+    const nameWidth = getTextWidth(displayName, nameFontSize);
+    const rankWidth = getTextWidth(rankName, rankFontSize);
+    const usernameWidth = getTextWidth(usernameLine, usernameFontSize);
+    const bioWidth = getTextWidth(shortBio, bioFontSize);
+    
+    const maxTextWidth = Math.max(nameWidth, rankWidth, usernameWidth, bioWidth);
+    const horizontalPadding = 80; // left/right margins combined
+    let desiredWidth = maxTextWidth + horizontalPadding;
+    // Clamp width between 450 and 900 for readability
+    const width = Math.min(Math.max(desiredWidth, 450), 900);
+    const height = 350; // fixed height – layout accommodates dynamic width
+    
     const avatarSize = 95;
     const avatarX = width / 2 - avatarSize / 2;
     const avatarY = 30;
@@ -396,7 +455,7 @@ export const generateProfileCard = async (req, res) => {
 
   <g>
     <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">${escapeXml(usernameLine)}</text>
     <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13">${escapeXml(shortBio)}</text>
   </g>
 
