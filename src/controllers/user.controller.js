@@ -206,7 +206,7 @@ export const generateRankBadge = async (req, res) => {
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="100" height="28" viewBox="0 0 100 28">
   <rect width="100" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="50" y="18" text-anchor="middle" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">${escapeXml(rankName)}</text>
+  <text x="50" y="18" text-anchor="middle" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">Rank ${escapeXml(rankName)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -237,7 +237,7 @@ export const generateRankLevelBadge = async (req, res) => {
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="70" height="28" viewBox="0 0 70 28">
   <rect width="70" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="35" y="18" text-anchor="middle" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">${escapeXml(levelText)}</text>
+  <text x="35" y="18" text-anchor="middle" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">Level ${escapeXml(levelText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
