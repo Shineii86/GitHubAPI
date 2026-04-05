@@ -1140,7 +1140,7 @@
                         <pre class="code-json" style="margin:0;">
 {
   <span class="key">"username"</span>: <span class="string">"shineii86"</span>,
-  <span class="key">"score"</span>: <span class="number">68</span>,
+  <span class="key">"level"</span>: <span class="number">68</span>,
   <span class="key">"rank"</span>: <span class="string">"MASTER"</span>,
   <span class="key">"profile"</span>: {
     <span class="key">"followers"</span>: <span class="number">5000</span>,
@@ -1260,8 +1260,8 @@
                 const response = await fetch(`https://githubsmartapi.vercel.app/api/user/${username}`);
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
-                document.getElementById('levelValue').textContent = data.score;
-                document.getElementById('rankValue').textContent = data.rank;
+                document.getElementById('levelValue').textContent = data.level;
+                document.getElementById('rankNameValue').textContent = data.rankName;
                 document.getElementById('reposValue').textContent = data.stats?.totalRepos || 0;
                 document.getElementById('starsValue').textContent = data.stats?.totalStars || 0;
                 const rankColors = {
@@ -1270,7 +1270,7 @@
                     'EXPERT': '#FBBF24', 'DEVELOPER': '#F87171', 'APPRENTICE': '#EC4899',
                     'NOVICE': '#06B6D4', 'BEGINNER': '#9CA3AF'
                 };
-                document.getElementById('rankValue').style.color = rankColors[data.rank] || 'var(--primary)';
+                document.getElementById('rankNameValue').style.color = rankColors[data.rankName] || 'var(--primary)';
                 loadingDiv.classList.remove('active');
                 resultDiv.style.display = 'block';
                 resultDiv.classList.add('slide-up');
