@@ -78,6 +78,24 @@ function getTextWidth(text, fontSize) {
 }
 
 // ----------------------------------------------------------------------
+// Local rank name mapping – ensures full rank names (no truncation)
+// ----------------------------------------------------------------------
+function getFullRankName(score) {
+  if (score >= 110) return 'GODLIKE';
+  if (score >= 100) return 'MYTHIC';
+  if (score >= 90)  return 'LEGEND';
+  if (score >= 80)  return 'GRANDMASTER';
+  if (score >= 70)  return 'MASTER';
+  if (score >= 60)  return 'ELITE';
+  if (score >= 50)  return 'EXPERT';
+  if (score >= 40)  return 'DEVELOPER';
+  if (score >= 30)  return 'APPRENTICE';
+  if (score >= 20)  return 'NOVICE';
+  if (score >= 10)  return 'BEGINNER';
+  return 'BEGINNER';
+}
+
+// ----------------------------------------------------------------------
 // Dynamic colors for rank names (based on your rank tiers)
 // ----------------------------------------------------------------------
 function getRankColor(rankName) {
@@ -129,7 +147,7 @@ export const getUserAnalysis = async (req, res) => {
     }
 
     const level = Math.floor(scoreData.score);
-    const rankName = getRankName(scoreData.score);
+    const rankName = getFullRankName(scoreData.score);
     const rankWithBullet = getRankWithBullet(scoreData.score);
 
     const response = {
@@ -168,7 +186,7 @@ export const compareUsers = async (req, res) => {
 
     const enrich = (data, username) => {
       const level = Math.floor(data.scoreData.score);
-      const rankName = getRankName(data.scoreData.score);
+      const rankName = getFullRankName(data.scoreData.score);
       const rankWithBullet = getRankWithBullet(data.scoreData.score);
       return {
         username,
@@ -200,7 +218,7 @@ export const generateBadge = async (req, res) => {
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
 
     const { scoreData } = await getUserAnalysisData(username);
-    const rankWithBullet = getRankWithBullet(scoreData.score);
+    const rankWithBullet = getRankWithBullet(scoreData.score); // This uses full rank name internally
 
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
       headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
@@ -208,7 +226,6 @@ export const generateBadge = async (req, res) => {
     });
     const avatarBase64 = await getBase64Image(rawUser.avatar_url);
     const displayName = rawUser.name || username;
-    // No truncation – let the badge expand to fit full name
     const nameText = displayName;
     const rankText = rankWithBullet;
 
@@ -216,18 +233,16 @@ export const generateBadge = async (req, res) => {
     const nameWidth = getTextWidth(nameText, fontSize);
     const rankWidth = getTextWidth(rankText, fontSize);
     
-    // Layout constants
-    const leftMargin = 10;
+    const leftMargin = 8;
     const avatarWidth = 20;
-    const avatarToNameGap = 8;   // space between avatar and name text (avatar x=8, width=20 => name start x=36)
-    const nameStartX = leftMargin + avatarWidth + avatarToNameGap; // 8+20+8 = 36
+    const avatarToNameGap = 8;
+    const nameStartX = leftMargin + avatarWidth + avatarToNameGap;
     const nameEndX = nameStartX + nameWidth;
     const nameToRankGap = 12;
     const rankStartX = nameEndX + nameToRankGap;
-    const rightMargin = 10;
+    const rightMargin = 8;
     
     let totalWidth = rankStartX + rankWidth + rightMargin;
-    // Ensure minimum width (e.g., very short names)
     totalWidth = Math.max(totalWidth, 180);
     const height = 30;
 
@@ -259,7 +274,7 @@ export const generateBadge = async (req, res) => {
 // ----------------------------------------------------------------------
 // GET /api/rank-badge/:username – shows "Rank MASTER" with separate colors:
 //   "Rank " in theme-aware gray, rank name in dynamic rank color
-// Supports ?theme=light|dark - AUTO-ADJUSTABLE WIDTH
+// Supports ?theme=light|dark - AUTO-ADJUSTABLE WIDTH - FULL RANK NAME FIXED
 // ----------------------------------------------------------------------
 export const generateRankBadge = async (req, res) => {
   try {
@@ -267,8 +282,8 @@ export const generateRankBadge = async (req, res) => {
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
 
     const { scoreData } = await getUserAnalysisData(username);
-    const rankName = getRankName(scoreData.score);
-    
+    const rankName = getFullRankName(scoreData.score);   // <-- uses full rank name
+
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
     const strokeColor = theme === 'light' ? '#e2e8f0' : '#334155';
     const labelColor = theme === 'light' ? '#475569' : '#94a3b8';
@@ -277,15 +292,15 @@ export const generateRankBadge = async (req, res) => {
     const labelText = "RANK ";
     const rankText = rankName;
     const fontSize = 12;
-    
+
     const labelWidth = getTextWidth(labelText, fontSize);
     const rankWidth = getTextWidth(rankText, fontSize);
-    const leftPadding = 10;
-    const rightPadding = 10;
+    const leftPadding = 8;
+    const rightPadding = 8;
     const totalWidth = leftPadding + labelWidth + rankWidth + rightPadding;
     const labelX = leftPadding;
     const rankX = leftPadding + labelWidth;
-    
+
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="28" viewBox="0 0 ${totalWidth} 28">
   <rect width="${totalWidth}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
@@ -375,7 +390,7 @@ export const generateProfileCard = async (req, res) => {
     const displayName = name || username;
     const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
-    const rankName = getRankName(score);
+    const rankName = getFullRankName(score);      // <-- uses full rank name
     const usernameLine = `@${username} • LV${level}`;
 
     const avatarBase64 = await getBase64Image(avatar_url);
