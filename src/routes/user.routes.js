@@ -3,7 +3,9 @@ import {
   getUserAnalysis,
   compareUsers,
   generateBadge,
+  generateRankBadge,
   generateProfileCard,
+  generateRankLevelBadge,
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
