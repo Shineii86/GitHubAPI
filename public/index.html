@@ -16,6 +16,7 @@
     <meta property="og:image" content="https://githubsmartapi.vercel.app/api/card/shineii86">
 
     <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://githubsmartapi.vercel.app/">
     <meta property="twitter:title" content="GitHubAPI - Smart GitHub Profile Analyzer">
     <meta property="twitter:description" content="Get developer levels, game ranks, and AI insights for any GitHub profile">
@@ -75,7 +76,7 @@
             overflow-x: hidden;
         }
 
-        /* Background Animation (unchanged) */
+        /* Background Animation */
         .bg-animation {
             position: fixed;
             top: 0;
@@ -186,7 +187,7 @@
             100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
         }
 
-        /* Navigation (unchanged) */
+        /* Navigation */
         nav {
             position: fixed;
             top: 0;
@@ -281,7 +282,7 @@
             cursor: pointer;
         }
 
-        /* Hero Section (unchanged) */
+        /* Hero Section */
         .hero {
             margin-top: 100px;
             padding: 5rem 2rem 3rem;
@@ -376,7 +377,7 @@
         }
         .btn-secondary:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-3px) scale(1.02); box-shadow: var(--shadow-soft); }
 
-        /* Demo Section (unchanged) */
+        /* Demo Section */
         .demo-section {
             max-width: 900px;
             margin: 4rem auto;
@@ -538,7 +539,7 @@
         }
         .stat-label { font-size: 0.85rem; color: var(--text-light); font-weight: 600; }
 
-        /* Features Section (unchanged) */
+        /* Features Section */
         .section {
             max-width: 1200px;
             margin: 6rem auto;
@@ -612,7 +613,7 @@
         }
         .feature-card p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; }
 
-        /* ENHANCED API Terminal Section */
+        /* API Terminal Section */
         .api-section {
             background: var(--white);
             border-radius: 32px;
@@ -652,7 +653,6 @@
         }
         .endpoint-desc { color: var(--text-secondary); margin: 0.75rem 0; font-size: 0.95rem; }
 
-        /* Terminal-style code block */
         .terminal {
             background: #0a0e1a;
             border-radius: 16px;
@@ -705,7 +705,6 @@
             color: #4ade80;
             margin-bottom: 0.5rem;
         }
-        .terminal-prompt span { color: #60a5fa; }
         .code-json .key { color: #FF8FA3; }
         .code-json .string { color: #4ADE80; }
         .code-json .number { color: #FFD93D; }
@@ -726,7 +725,7 @@
             color: white;
         }
 
-        /* Enhanced Rank Showcase - Card Grid */
+        /* Rank Showcase - Game Style Cards */
         .rank-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -777,7 +776,7 @@
             color: var(--text-light);
         }
 
-        /* Tech Stack (unchanged) */
+        /* Tech Stack */
         .tech-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -803,7 +802,7 @@
         }
         .tech-item span { display: block; font-weight: 700; font-size: 0.9rem; color: var(--text-primary); }
 
-        /* CTA Section (unchanged) */
+        /* CTA Section */
         .cta-section {
             background: var(--gradient-primary);
             border-radius: 32px;
@@ -853,7 +852,7 @@
         }
         .btn-outline-white:hover { background: rgba(255,255,255,0.1); border-color: white; transform: translateY(-3px); }
 
-        /* Footer (unchanged) */
+        /* Footer */
         footer {
             background: var(--white);
             border-top: 2px solid var(--primary-light);
@@ -949,7 +948,7 @@
         .footer-bottom-links a { color: var(--text-light); text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
         .footer-bottom-links a:hover { color: var(--primary); }
 
-        /* Toast (unchanged) */
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 2rem;
@@ -1010,7 +1009,7 @@
     <base target="_blank">
 </head>
 <body>
-    <!-- Background Elements (same as before) -->
+    <!-- Background Elements -->
     <div class="bg-animation">
         <div class="gradient-mesh"></div>
         <div class="blob blob-1"></div>
@@ -1048,7 +1047,7 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="hero-badge"><i class="fas fa-sparkles"></i> v2.0.0</div>
+            <div class="hero-badge"><i class="fas fa-sparkles"></i> v2.0.0 – GitHub Ranks & Custom Card Backgrounds</div>
             <h1>Smart GitHub Profile Analyzer & Scoring Engine</h1>
             <p>Analyze any GitHub user – get a developer level (0–100), game‑style rank (GODLIKE → BEGINNER), contribution streaks, language insights, and AI‑powered summaries.</p>
             <div class="hero-buttons">
@@ -1058,7 +1057,7 @@
         </div>
     </section>
 
-    <!-- Demo Section (unchanged) -->
+    <!-- Demo Section -->
     <section class="demo-section" id="demo">
         <div class="demo-card">
             <div class="demo-header">
@@ -1078,7 +1077,7 @@
             </div>
             <div id="demoResult" style="display: none;">
                 <div class="stats-preview">
-                    <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="scoreValue">--</div><div class="stat-label">Level</div></div>
+                    <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="levelValue">--</div><div class="stat-label">Level</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-trophy"></i></div><div class="stat-value" id="rankValue" style="font-size: 1.5rem;">--</div><div class="stat-label">Rank</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-folder"></i></div><div class="stat-value" id="reposValue">--</div><div class="stat-label">Repos</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="starsValue">--</div><div class="stat-label">Stars</div></div>
@@ -1087,24 +1086,24 @@
         </div>
     </section>
 
-    <!-- Features Section (unchanged) -->
+    <!-- Features Section -->
     <section class="section" id="features">
         <div class="section-title"><h2>✨ Powerful Features</h2><p>Everything you need to analyze developer profiles</p></div>
         <div class="features-grid">
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-calculator"></i></div><h3>Advanced Scoring</h3><p>8 weighted metrics including stars, repos, activity, languages, followers, account age, contributions, and streak → 0-100 level + game rank (GODLIKE → BEGINNER).</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-fire"></i></div><h3>Contribution Streaks</h3><p>Real current & longest streak data from GitHub GraphQL calendar API. Track developer consistency and activity patterns.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-robot"></i></div><h3>AI Summaries</h3><p>Optional GPT-4o mini integration for strengths/weaknesses analysis. Get intelligent insights about any developer profile.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-code-branch"></i></div><h3>Language Insights</h3><p>Automatic detection of top programming languages across repositories with usage statistics and trends.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-users"></i></div><h3>Compare Users</h3><p>Side-by-side comparison of two developers. Perfect for candidate screening and team building decisions.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-image"></i></div><h3>SVG Badges & Cards</h3><p>Embeddable SVG badges (no animation) and profile cards with custom backgrounds & theme overlays for GitHub READMEs.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-database"></i></div><h3>Redis Caching</h3><p>5-minute intelligent cache to reduce API calls and improve response times. Optional but recommended.</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-cloud"></i></div><h3>Serverless Ready</h3><p>Deploy to Vercel in one click. Built for serverless environments with minimal configuration required.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-calculator"></i></div><h3>Advanced Scoring</h3><p>8 weighted metrics → 0-100 level + game rank (GODLIKE → BEGINNER).</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-fire"></i></div><h3>Contribution Streaks</h3><p>Real current & longest streak from GitHub GraphQL.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-robot"></i></div><h3>AI Summaries</h3><p>GPT-4o mini strengths/weaknesses analysis.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-code-branch"></i></div><h3>Language Insights</h3><p>Automatic top language detection.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-users"></i></div><h3>Compare Users</h3><p>Side‑by‑side developer comparison.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-image"></i></div><h3>SVG Badges & Cards</h3><p>Embeddable badges (no animation) & profile cards with custom backgrounds.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-database"></i></div><h3>Redis Caching</h3><p>5‑minute cache for faster responses.</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-cloud"></i></div><h3>Serverless Ready</h3><p>Deploy to Vercel in one click.</p></div>
         </div>
     </section>
 
-    <!-- ENHANCED RANK SHOWCASE (Card Grid with score ranges and progress bars) -->
+    <!-- Rank Showcase - Game Style -->
     <section class="section" id="ranks">
-        <div class="section-title"><h2>🏆 GitHub Ranking System</h2><p>From beginner to godlike developer</p></div>
+        <div class="section-title"><h3>🏆 GitHub Ranking System</h2><p>From beginner to godlike developer</p></div>
         <div class="rank-grid">
             <div class="rank-card"><div class="rank-name" style="color:#FFD700;">GODLIKE</div><div class="rank-range">Level: 100</div><div class="rank-progress"><div class="rank-progress-fill" style="width:100%"></div></div><div class="rank-score-hint">The absolute pinnacle</div></div>
             <div class="rank-card"><div class="rank-name" style="color:#C0C0C0;">MYTHIC</div><div class="rank-range">Level: 90–99</div><div class="rank-progress"><div class="rank-progress-fill" style="width:95%"></div></div><div class="rank-score-hint">Legendary tier</div></div>
@@ -1123,14 +1122,13 @@
         </div>
     </section>
 
-    <!-- ENHANCED API SECTION with Terminal-style /api/user/:username block -->
+    <!-- API Section -->
     <section class="section" id="api">
         <div class="section-title"><h2>📡 API Endpoints</h2><p>Simple REST API with powerful responses</p></div>
         <div class="api-section">
             <div class="endpoint-group">
                 <div class="endpoint"><span class="method">GET</span><span>/api/user/:username</span></div>
                 <p class="endpoint-desc">Returns complete profile analysis with level, rank, stats, and AI summary.</p>
-                <!-- Terminal-style block -->
                 <div class="terminal">
                     <div class="terminal-header">
                         <div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div>
@@ -1139,21 +1137,21 @@
                     </div>
                     <div class="terminal-body">
                         <div class="terminal-prompt">$ curl https://githubsmartapi.vercel.app/api/user/shineii86</div>
-                        <pre class="code-json" style="margin:0; font-family:'Fira Code',monospace; font-size:0.85rem;">
+                        <pre class="code-json" style="margin:0;">
 {
   <span class="key">"username"</span>: <span class="string">"shineii86"</span>,
   <span class="key">"score"</span>: <span class="number">68</span>,
   <span class="key">"rank"</span>: <span class="string">"MASTER"</span>,
   <span class="key">"profile"</span>: {
-    <span class="key">"followers"</span>: <span class="number">15</span>,
-    <span class="key">"publicRepos"</span>: <span class="number">40</span>,
-    <span class="key">"accountAgeYears"</span>: <span class="number">2</span>
+    <span class="key">"followers"</span>: <span class="number">5000</span>,
+    <span class="key">"publicRepos"</span>: <span class="number">8</span>,
+    <span class="key">"accountAgeYears"</span>: <span class="number">12</span>
   },
   <span class="key">"stats"</span>: {
-    <span class="key">"totalStars"</span>: <span class="number">50</span>,
-    <span class="key">"totalContributions"</span>: <span class="number">133</span>,
+    <span class="key">"totalStars"</span>: <span class="number">1200</span>,
+    <span class="key">"totalContributions"</span>: <span class="number">243</span>,
     <span class="key">"currentStreak"</span>: <span class="number">2</span>,
-    <span class="key">"longestStreak"</span>: <span class="number">14</span>
+    <span class="key">"longestStreak"</span>: <span class="number">7</span>
   },
   <span class="key">"aiSummary"</span>: <span class="string">"Moderate activity with room for growth. Good language diversity."</span>,
   <span class="key">"cached"</span>: <span class="boolean">false</span>
@@ -1178,7 +1176,7 @@
         </div>
     </section>
 
-    <!-- Tech Stack (unchanged) -->
+    <!-- Tech Stack -->
     <section class="section">
         <div class="section-title"><h2>🛠️ Tech Stack</h2><p>Built with modern technologies</p></div>
         <div class="tech-grid">
@@ -1195,7 +1193,7 @@
     <section class="section">
         <div class="cta-section">
             <div class="cta-content">
-                <h3>🚀 Ready to Analyze?</h3>
+                <h4>🚀 Ready to Analyze?</h3>
                 <p>Deploy your own instance or use our hosted API. Free and open source under MIT License.</p>
                 <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
                     <a href="https://github.com/Shineii86/GitHubAPI" target="_blank" class="btn btn-white"><i class="fab fa-github"></i> Get Started</a>
@@ -1224,7 +1222,7 @@
             </div>
             <div class="footer-bottom">
                 <p>Made with <i class="fas fa-heart" style="color: #FF8FA3;"></i> by <strong>Shinei Nouzen</strong></p>
-                <div class="footer-bottom-links"><a href="https://github.com/Shineii86/GitHubAPI" target="_blank">© 2026 GitHubAPI - All Rights Reserved</a></div>
+                <div class="footer-bottom-links"><a href="https://github.com/Shineii86/GitHubAPI" target="_blank">© 2026 GitHubAPI — All Rights Reserved</a></div>
             </div>
         </div>
     </footer>
@@ -1232,7 +1230,6 @@
     <div class="toast" id="toast"><div class="toast-icon"><i class="fas fa-check"></i></div><div class="toast-content"><div class="toast-title">Success!</div><div class="toast-message">Code copied to clipboard</div></div></div>
 
     <script>
-        // Create particles
         function createParticles() {
             const container = document.getElementById('particles');
             for (let i = 0; i < 20; i++) {
@@ -1246,14 +1243,12 @@
         }
         createParticles();
 
-        // Navbar scroll effect
         window.addEventListener('scroll', () => {
             const navbar = document.getElementById('navbar');
             if (window.scrollY > 50) navbar.classList.add('scrolled');
             else navbar.classList.remove('scrolled');
         });
 
-        // Analyze user function
         async function analyzeUser() {
             const username = document.getElementById('usernameInput').value.trim();
             if (!username) { showToast('Please enter a GitHub username', 'error'); return; }
@@ -1265,7 +1260,7 @@
                 const response = await fetch(`https://githubsmartapi.vercel.app/api/user/${username}`);
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
-                document.getElementById('scoreValue').textContent = data.score;
+                document.getElementById('levelValue').textContent = data.score;
                 document.getElementById('rankValue').textContent = data.rank;
                 document.getElementById('reposValue').textContent = data.stats?.totalRepos || 0;
                 document.getElementById('starsValue').textContent = data.stats?.totalStars || 0;
@@ -1306,7 +1301,6 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        // Copy terminal code
         function copyTerminalCode(btn) {
             const terminalBody = btn.closest('.terminal').querySelector('.terminal-body');
             const codeElement = terminalBody.querySelector('pre');
@@ -1318,7 +1312,6 @@
             });
         }
 
-        // Try live endpoint: fetch and show alert with JSON
         async function tryLiveEndpoint() {
             try {
                 const response = await fetch('https://githubsmartapi.vercel.app/api/user/shineii86');
@@ -1331,7 +1324,6 @@
             }
         }
 
-        // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
