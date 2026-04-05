@@ -217,14 +217,14 @@ export const generateBadge = async (req, res) => {
     const rankWidth = getTextWidth(rankText, fontSize);
     
     // Layout constants
-    const leftMargin = 8;
+    const leftMargin = 10;
     const avatarWidth = 20;
     const avatarToNameGap = 8;   // space between avatar and name text (avatar x=8, width=20 => name start x=36)
     const nameStartX = leftMargin + avatarWidth + avatarToNameGap; // 8+20+8 = 36
     const nameEndX = nameStartX + nameWidth;
     const nameToRankGap = 12;
     const rankStartX = nameEndX + nameToRankGap;
-    const rightMargin = 8;
+    const rightMargin = 10;
     
     let totalWidth = rankStartX + rankWidth + rightMargin;
     // Ensure minimum width (e.g., very short names)
@@ -280,8 +280,8 @@ export const generateRankBadge = async (req, res) => {
     
     const labelWidth = getTextWidth(labelText, fontSize);
     const rankWidth = getTextWidth(rankText, fontSize);
-    const leftPadding = 8;
-    const rightPadding = 8;
+    const leftPadding = 10;
+    const rightPadding = 10;
     const totalWidth = leftPadding + labelWidth + rankWidth + rightPadding;
     const labelX = leftPadding;
     const rankX = leftPadding + labelWidth;
