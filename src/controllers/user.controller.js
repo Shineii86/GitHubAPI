@@ -144,7 +144,7 @@ export const getUserAnalysis = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/compare/:user1/:user2 – includes level, rankName, rankWithBullet
+// GET /api/vs/:user1/:user2 – includes level, rankName, rankWithBullet
 // ----------------------------------------------------------------------
 export const compareUsers = async (req, res) => {
   try {
@@ -228,7 +228,7 @@ export const generateBadge = async (req, res) => {
 
 // ----------------------------------------------------------------------
 // GET /api/rank-badge/:username – shows "Rank MASTER" with separate colors:
-//   "Rank " in neutral gray, rank name in dynamic rank color
+//   "Rank " in theme-aware gray, rank name in dynamic rank color
 // Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankBadge = async (req, res) => {
@@ -240,7 +240,9 @@ export const generateRankBadge = async (req, res) => {
     const rankName = getRankName(scoreData.score);
     
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
-    const labelColor = '#64748b';  // neutral gray for "Rank "
+    const strokeColor = theme === 'light' ? '#e2e8f0' : '#334155';
+    // Theme-aware label color: darker on light, lighter on dark
+    const labelColor = theme === 'light' ? '#475569' : '#94a3b8';
     const rankColor = getRankColor(rankName);
 
     const labelText = "RANK ";
@@ -250,7 +252,7 @@ export const generateRankBadge = async (req, res) => {
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
-  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
+  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
   <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
   <text x="${8 + labelText.length * 7}" y="18" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankText)}</text>
 </svg>`;
@@ -265,8 +267,8 @@ export const generateRankBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/rank-level/:username – shows "Level 90" with separate colors:
-//   "Level " in neutral gray, level number in dynamic level color
+// GET /api/level-badge/:username – shows "Level 90" with separate colors:
+//   "Level " in theme-aware gray, level number in dynamic level color
 // Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankLevelBadge = async (req, res) => {
@@ -278,17 +280,19 @@ export const generateRankLevelBadge = async (req, res) => {
     const level = Math.floor(scoreData.score);
     
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
-    const labelColor = '#64748b';  // neutral gray for "Level "
+    const strokeColor = theme === 'light' ? '#e2e8f0' : '#334155';
+    // Theme-aware label color: darker on light, lighter on dark
+    const labelColor = theme === 'light' ? '#475569' : '#94a3b8';
     const levelColor = getLevelColor(level);
 
-    const labelText = "Level ";
+    const labelText = "LEVEL ";
     const levelText = level.toString();
     const fullText = labelText + levelText;
     const width = Math.max(80, fullText.length * 8 + 20);
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
-  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
+  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="${strokeColor}" stroke-width="1"/>
   <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
   <text x="${8 + labelText.length * 7}" y="18" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(levelText)}</text>
 </svg>`;
