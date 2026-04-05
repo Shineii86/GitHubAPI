@@ -7,7 +7,7 @@
  * - SVG badge (/api/badge/:username) – avatar, name, rank with level (e.g., "MYTHIC • LV90")
  * - SVG profile card (/api/card/:username) – avatar, name, username+level, rank name only,
  *   following/followers, watermark, optional custom background images (?bgImage=1..6)
- * - Shields.io badges: /api/rank-badge/:username (rank name), /api/rank-level/:username (level)
+ * - Shields.io badges: /api/rank-badge/:username ("Rank MASTER"), /api/rank-level/:username ("Level 90")
  * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
  * - Light/dark themes via ?theme=light|dark
  * - Google Sans font stack (fallback to Product Sans, sans-serif)
@@ -189,8 +189,8 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/rank-badge/:username – shields.io style: only rank name (e.g., "MYTHIC")
-// Supports ?theme=light|dark, no animation
+// GET /api/rank-badge/:username – shows "Rank MASTER" (label + rank name)
+// Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankBadge = async (req, res) => {
   try {
@@ -199,14 +199,17 @@ export const generateRankBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const rankName = getRankName(scoreData.score);
+    const displayText = `RANK: ${rankName}`;
 
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
     const rankColor = '#fbbf24';
 
+    const width = Math.max(90, displayText.length * 8 + 20);
+
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="100" height="28" viewBox="0 0 100 28">
-  <rect width="100" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="50" y="18" text-anchor="middle" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">Rank ${escapeXml(rankName)}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
+  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="${width/2}" y="18" text-anchor="middle" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(displayText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -219,8 +222,8 @@ export const generateRankBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/rank-level/:username – shields.io style: only numeric level (e.g., "90")
-// Supports ?theme=light|dark, no animation
+// GET /api/rank-level/:username – shows "Level 90" (label + level number)
+// Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankLevelBadge = async (req, res) => {
   try {
@@ -229,22 +232,24 @@ export const generateRankLevelBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const level = Math.floor(scoreData.score);
-    const levelText = String(level);
+    const displayText = `LEVEL: ${level}`;
 
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
     const levelColor = '#3b82f6';
 
+    const width = Math.max(80, displayText.length * 8 + 20);
+
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="70" height="28" viewBox="0 0 70 28">
-  <rect width="70" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="35" y="18" text-anchor="middle" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-weight="bold">Level ${escapeXml(levelText)}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
+  <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="${width/2}" y="18" text-anchor="middle" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(displayText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.send(svg);
   } catch (err) {
     console.error('Level badge error:', err.message);
-    const fallbackSvg = `<svg width="70" height="28"><rect width="70" height="28" rx="6" fill="#1f2937"/><text x="35" y="18" text-anchor="middle" fill="#ef4444" font-size="12">0</text></svg>`;
+    const fallbackSvg = `<svg width="80" height="28"><rect width="80" height="28" rx="6" fill="#1f2937"/><text x="40" y="18" text-anchor="middle" fill="#ef4444" font-size="12">0</text></svg>`;
     res.status(404).setHeader('Content-Type', 'image/svg+xml').send(fallbackSvg);
   }
 };
