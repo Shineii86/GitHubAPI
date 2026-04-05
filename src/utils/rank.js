@@ -1,11 +1,5 @@
-/**
- * Rank utilities – game‑style rank titles.
- * @param {number} score - Developer score (0–100)
- * @returns {object} { name, level }
- */
 export function getRankDetails(score) {
   const level = Math.floor(score);
-
   if (level >= 100) return { name: 'GODLIKE', level };
   if (level >= 90) return { name: 'MYTHIC', level };
   if (level >= 80) return { name: 'LEGEND', level };
@@ -19,16 +13,10 @@ export function getRankDetails(score) {
   return { name: 'BEGINNER', level };
 }
 
-/**
- * Get rank name only (e.g., "MYTHIC")
- */
 export function getRankName(score) {
   return getRankDetails(score).name;
 }
 
-/**
- * Get rank with level and bullet (e.g., "MYTHIC • LV90")
- */
 export function getRankWithBullet(score) {
   const { name, level } = getRankDetails(score);
   return `${name} • LV${level}`;
