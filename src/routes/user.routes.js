@@ -11,9 +11,9 @@ import {
 const router = express.Router();
 
 router.get('/user/:username', getUserAnalysis);
-router.get('/compare/:user1/:user2', compareUsers);
+router.get('/vs/:user1/:user2', compareUsers);
 router.get('/badge/:username', generateBadge);
-router.get('/vs/:username', generateProfileCard);
+router.get('/card/:username', generateProfileCard);
 router.get('/rank-badge/:username', generateRankBadge);
 router.get('/level-badge/:username', generateRankLevelBadge);
 
