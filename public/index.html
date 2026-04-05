@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHubAPI - Smart GitHub Profile Analyzer & Scoring Engine</title>
-    <meta name="description" content="Analyze any GitHub user – get a developer score (0–100), game‑style rank (GODLIKE to BEGINNER), contribution streaks, language insights, and AI-powered summaries.">
+    <meta name="description" content="Analyze any GitHub user – get a developer level (0–100), game‑style rank (GODLIKE to BEGINNER), contribution streaks, language insights, and AI-powered summaries.">
     <meta name="author" content="Shinei Nouzen">
     <meta name="theme-color" content="#FF8FA3">
 
@@ -12,14 +12,13 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://githubsmartapi.vercel.app/">
     <meta property="og:title" content="GitHubAPI - Smart GitHub Profile Analyzer">
-    <meta property="og:description" content="Get developer scores, game ranks, and AI insights for any GitHub profile">
+    <meta property="og:description" content="Get developer levels, game ranks, and AI insights for any GitHub profile">
     <meta property="og:image" content="https://githubsmartapi.vercel.app/api/card/shineii86">
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://githubsmartapi.vercel.app/">
     <meta property="twitter:title" content="GitHubAPI - Smart GitHub Profile Analyzer">
-    <meta property="twitter:description" content="Get developer scores, game ranks, and AI insights for any GitHub profile">
+    <meta property="twitter:description" content="Get developer levels, game ranks, and AI insights for any GitHub profile">
     <meta property="twitter:image" content="https://githubsmartapi.vercel.app/api/card/shineii86">
 
     <!-- Fonts -->
@@ -1049,9 +1048,9 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="hero-badge"><i class="fas fa-sparkles"></i> v2.0.0 – Game‑Style Ranks & Custom Card Backgrounds</div>
+            <div class="hero-badge"><i class="fas fa-sparkles"></i> v2.0.0</div>
             <h1>Smart GitHub Profile Analyzer & Scoring Engine</h1>
-            <p>Analyze any GitHub user – get a developer score (0–100), game‑style rank (GODLIKE → BEGINNER), contribution streaks, language insights, and AI‑powered summaries.</p>
+            <p>Analyze any GitHub user – get a developer level (0–100), game‑style rank (GODLIKE → BEGINNER), contribution streaks, language insights, and AI‑powered summaries.</p>
             <div class="hero-buttons">
                 <a href="https://github.com/Shineii86/GitHubAPI" target="_blank" class="btn btn-primary"><i class="fab fa-github"></i> View on GitHub</a>
                 <a href="#demo" class="btn btn-secondary"><i class="fas fa-play"></i> Live Demo</a>
@@ -1079,7 +1078,7 @@
             </div>
             <div id="demoResult" style="display: none;">
                 <div class="stats-preview">
-                    <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="scoreValue">--</div><div class="stat-label">Score</div></div>
+                    <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="scoreValue">--</div><div class="stat-label">Level</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-trophy"></i></div><div class="stat-value" id="rankValue" style="font-size: 1.5rem;">--</div><div class="stat-label">Rank</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-folder"></i></div><div class="stat-value" id="reposValue">--</div><div class="stat-label">Repos</div></div>
                     <div class="stat-box"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-value" id="starsValue">--</div><div class="stat-label">Stars</div></div>
@@ -1092,7 +1091,7 @@
     <section class="section" id="features">
         <div class="section-title"><h2>✨ Powerful Features</h2><p>Everything you need to analyze developer profiles</p></div>
         <div class="features-grid">
-            <div class="feature-card"><div class="feature-icon"><i class="fas fa-calculator"></i></div><h3>Advanced Scoring</h3><p>8 weighted metrics including stars, repos, activity, languages, followers, account age, contributions, and streak → 0-100 score + game rank (GODLIKE → BEGINNER).</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fas fa-calculator"></i></div><h3>Advanced Scoring</h3><p>8 weighted metrics including stars, repos, activity, languages, followers, account age, contributions, and streak → 0-100 level + game rank (GODLIKE → BEGINNER).</p></div>
             <div class="feature-card"><div class="feature-icon"><i class="fas fa-fire"></i></div><h3>Contribution Streaks</h3><p>Real current & longest streak data from GitHub GraphQL calendar API. Track developer consistency and activity patterns.</p></div>
             <div class="feature-card"><div class="feature-icon"><i class="fas fa-robot"></i></div><h3>AI Summaries</h3><p>Optional GPT-4o mini integration for strengths/weaknesses analysis. Get intelligent insights about any developer profile.</p></div>
             <div class="feature-card"><div class="feature-icon"><i class="fas fa-code-branch"></i></div><h3>Language Insights</h3><p>Automatic detection of top programming languages across repositories with usage statistics and trends.</p></div>
@@ -1105,22 +1104,22 @@
 
     <!-- ENHANCED RANK SHOWCASE (Card Grid with score ranges and progress bars) -->
     <section class="section" id="ranks">
-        <div class="section-title"><h2>🏆 Game‑Style Ranking System</h2><p>From beginner to godlike developer</p></div>
+        <div class="section-title"><h2>🏆 GitHub Ranking System</h2><p>From beginner to godlike developer</p></div>
         <div class="rank-grid">
-            <div class="rank-card"><div class="rank-name" style="color:#FFD700;">GODLIKE</div><div class="rank-range">Score: 100</div><div class="rank-progress"><div class="rank-progress-fill" style="width:100%"></div></div><div class="rank-score-hint">The absolute pinnacle</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#C0C0C0;">MYTHIC</div><div class="rank-range">Score: 90–99</div><div class="rank-progress"><div class="rank-progress-fill" style="width:95%"></div></div><div class="rank-score-hint">Legendary tier</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#CD7F32;">LEGEND</div><div class="rank-range">Score: 80–89</div><div class="rank-progress"><div class="rank-progress-fill" style="width:85%"></div></div><div class="rank-score-hint">Highly respected</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#4ADE80;">GRANDMASTER</div><div class="rank-range">Score: 70–79</div><div class="rank-progress"><div class="rank-progress-fill" style="width:75%"></div></div><div class="rank-score-hint">Elite performer</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#60A5FA;">MASTER</div><div class="rank-range">Score: 60–69</div><div class="rank-progress"><div class="rank-progress-fill" style="width:65%"></div></div><div class="rank-score-hint">Solid expert</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#A78BFA;">ELITE</div><div class="rank-range">Score: 50–59</div><div class="rank-progress"><div class="rank-progress-fill" style="width:55%"></div></div><div class="rank-score-hint">Above average</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#FBBF24;">EXPERT</div><div class="rank-range">Score: 40–49</div><div class="rank-progress"><div class="rank-progress-fill" style="width:45%"></div></div><div class="rank-score-hint">Competent developer</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#F87171;">DEVELOPER</div><div class="rank-range">Score: 30–39</div><div class="rank-progress"><div class="rank-progress-fill" style="width:35%"></div></div><div class="rank-score-hint">Active coder</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#EC4899;">APPRENTICE</div><div class="rank-range">Score: 20–29</div><div class="rank-progress"><div class="rank-progress-fill" style="width:25%"></div></div><div class="rank-score-hint">Learning the craft</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#06B6D4;">NOVICE</div><div class="rank-range">Score: 10–19</div><div class="rank-progress"><div class="rank-progress-fill" style="width:15%"></div></div><div class="rank-score-hint">Getting started</div></div>
-            <div class="rank-card"><div class="rank-name" style="color:#9CA3AF;">BEGINNER</div><div class="rank-range">Score: 0–9</div><div class="rank-progress"><div class="rank-progress-fill" style="width:5%"></div></div><div class="rank-score-hint">First steps</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#FFD700;">GODLIKE</div><div class="rank-range">Level: 100</div><div class="rank-progress"><div class="rank-progress-fill" style="width:100%"></div></div><div class="rank-score-hint">The absolute pinnacle</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#C0C0C0;">MYTHIC</div><div class="rank-range">Level: 90–99</div><div class="rank-progress"><div class="rank-progress-fill" style="width:95%"></div></div><div class="rank-score-hint">Legendary tier</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#CD7F32;">LEGEND</div><div class="rank-range">Level: 80–89</div><div class="rank-progress"><div class="rank-progress-fill" style="width:85%"></div></div><div class="rank-score-hint">Highly respected</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#4ADE80;">GRANDMASTER</div><div class="rank-range">Level: 70–79</div><div class="rank-progress"><div class="rank-progress-fill" style="width:75%"></div></div><div class="rank-score-hint">Elite performer</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#60A5FA;">MASTER</div><div class="rank-range">Level: 60–69</div><div class="rank-progress"><div class="rank-progress-fill" style="width:65%"></div></div><div class="rank-score-hint">Solid expert</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#A78BFA;">ELITE</div><div class="rank-range">Level: 50–59</div><div class="rank-progress"><div class="rank-progress-fill" style="width:55%"></div></div><div class="rank-score-hint">Above average</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#FBBF24;">EXPERT</div><div class="rank-range">Level: 40–49</div><div class="rank-progress"><div class="rank-progress-fill" style="width:45%"></div></div><div class="rank-score-hint">Competent developer</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#F87171;">DEVELOPER</div><div class="rank-range">Level: 30–39</div><div class="rank-progress"><div class="rank-progress-fill" style="width:35%"></div></div><div class="rank-score-hint">Active coder</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#EC4899;">APPRENTICE</div><div class="rank-range">Level: 20–29</div><div class="rank-progress"><div class="rank-progress-fill" style="width:25%"></div></div><div class="rank-score-hint">Learning the craft</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#06B6D4;">NOVICE</div><div class="rank-range">Level: 10–19</div><div class="rank-progress"><div class="rank-progress-fill" style="width:15%"></div></div><div class="rank-score-hint">Getting started</div></div>
+            <div class="rank-card"><div class="rank-name" style="color:#9CA3AF;">BEGINNER</div><div class="rank-range">Level: 0–9</div><div class="rank-progress"><div class="rank-progress-fill" style="width:5%"></div></div><div class="rank-score-hint">First steps</div></div>
         </div>
         <div class="rank-info">
-            <p>Score ranges from <strong>0 to 100</strong> based on 8 weighted metrics. Rank thresholds as shown above.</p>
+            <p>Level ranges from <strong>0 to 100</strong> based on 8 weighted metrics. Rank thresholds as shown above.</p>
         </div>
     </section>
 
@@ -1130,7 +1129,7 @@
         <div class="api-section">
             <div class="endpoint-group">
                 <div class="endpoint"><span class="method">GET</span><span>/api/user/:username</span></div>
-                <p class="endpoint-desc">Returns complete profile analysis with score, rank, stats, and AI summary.</p>
+                <p class="endpoint-desc">Returns complete profile analysis with level, rank, stats, and AI summary.</p>
                 <!-- Terminal-style block -->
                 <div class="terminal">
                     <div class="terminal-header">
@@ -1146,15 +1145,15 @@
   <span class="key">"score"</span>: <span class="number">68</span>,
   <span class="key">"rank"</span>: <span class="string">"MASTER"</span>,
   <span class="key">"profile"</span>: {
-    <span class="key">"followers"</span>: <span class="number">5000</span>,
-    <span class="key">"publicRepos"</span>: <span class="number">8</span>,
-    <span class="key">"accountAgeYears"</span>: <span class="number">12</span>
+    <span class="key">"followers"</span>: <span class="number">15</span>,
+    <span class="key">"publicRepos"</span>: <span class="number">40</span>,
+    <span class="key">"accountAgeYears"</span>: <span class="number">2</span>
   },
   <span class="key">"stats"</span>: {
-    <span class="key">"totalStars"</span>: <span class="number">1200</span>,
-    <span class="key">"totalContributions"</span>: <span class="number">243</span>,
+    <span class="key">"totalStars"</span>: <span class="number">50</span>,
+    <span class="key">"totalContributions"</span>: <span class="number">133</span>,
     <span class="key">"currentStreak"</span>: <span class="number">2</span>,
-    <span class="key">"longestStreak"</span>: <span class="number">7</span>
+    <span class="key">"longestStreak"</span>: <span class="number">14</span>
   },
   <span class="key">"aiSummary"</span>: <span class="string">"Moderate activity with room for growth. Good language diversity."</span>,
   <span class="key">"cached"</span>: <span class="boolean">false</span>
@@ -1223,7 +1222,10 @@
                 <div class="footer-links"><h4>Resources</h4><ul><li><a href="https://github.com/Shineii86/GitHubAPI" target="_blank">GitHub Repo</a></li><li><a href="https://github.com/Shineii86/GitHubAPI#readme" target="_blank">Documentation</a></li><li><a href="https://github.com/Shineii86/GitHubAPI/issues" target="_blank">Issues</a></li><li><a href="https://github.com/Shineii86/GitHubAPI/blob/main/LICENSE" target="_blank">License</a></li></ul></div>
                 <div class="footer-links"><h4>Connect</h4><ul><li><a href="https://github.com/Shineii86" target="_blank">GitHub Profile</a></li><li><a href="https://telegram.me/Shineii86" target="_blank">Telegram</a></li><li><a href="https://instagram.com/ikx7.a" target="_blank">Instagram</a></li><li><a href="mailto:ikx7a@hotmail.com">Email</a></li></ul></div>
             </div>
-            <div class="footer-bottom"><p>Made with ❤️ by <strong><a href="https://linktr.ee/ikx7.a" target="_blank">Shinei Nouzen</a></strong></p><div class="footer-bottom-links"><a href="https://github.com/Shineii86/GitHubAPI" target="_blank">© 2026 GitHuhAPI — All Rights Reserved</a></div></div>
+            <div class="footer-bottom">
+                <p>Made with <i class="fas fa-heart" style="color: #FF8FA3;"></i> by <strong>Shinei Nouzen</strong></p>
+                <div class="footer-bottom-links"><a href="https://github.com/Shineii86/GitHubAPI" target="_blank">© 2026 GitHubAPI - All Rights Reserved</a></div>
+            </div>
         </div>
     </footer>
 
