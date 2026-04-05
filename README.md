@@ -71,6 +71,37 @@ Perfect for:
 
 ---
 
+## ✨ Features V2.0
+
+- **JSON analysis** – score, rank, level, rank name, stats, languages, AI summary  
+- **Compare two users** – side‑by‑side JSON comparison  
+- **SVG badge** – avatar + name + rank with level (e.g., `octocat MYTHIC • LV90`)  
+- **Profile card** – full card with avatar, name, username+level, rank name, following/followers, custom backgrounds  
+- **Shields.io badges** – `Rank MASTER` (gold) and `Level 90` (blue), light/dark theme support  
+- **Optional AI summaries** (OpenAI GPT‑4o mini)  
+- **Redis caching** (5 min TTL)  
+- **Custom card backgrounds** – use `?bgImage=1` to `6` (add your own images in `CUSTOM_BG` array)  
+
+---
+
+## 📡 API Endpoints
+
+| Endpoint | Description | Example |
+|----------|-------------|---------|
+| `GET /api/user/:username` | Full JSON analysis | `/api/user/shineii86` |
+| `GET /api/vs/:user1/:user2` | Compare two users | `/api/vs/shineii86/octocat` |
+| `GET /api/badge/:username` | SVG badge (avatar + name + rank•LV) | `/api/badge/shineii86?theme=dark` |
+| `GET /api/card/:username` | Profile card (with custom backgrounds) | `/api/card/shineii86?theme=light&bgImage=1` |
+| `GET /api/rank-badge/:username` | Shields‑style “Rank MASTER” badge | `/api/rank-badge/shineii86?theme=dark` |
+| `GET /api/level-badge/:username` | Shields‑style “Level 90” badge | `/api/level-badge/shineii86?theme=light` |
+
+**Query parameters:**
+- `?theme=light` or `?theme=dark` (default dark)  
+- `?bgImage=1..6` for custom card backgrounds  
+- `?animated=true` (only for the full badge, optional)
+  
+---
+
 ## 🎥 Live API Preview
 
 > **Try the API instantly without writing any code!**  
@@ -214,13 +245,90 @@ curl https://githubsmartapi.vercel.app/api/user/shineii86
 }
 ```
 
-### `GET /api/compare/:user1/:user2`
+### `GET /api/vs/:user1/:user2`
 
 Returns side‑by‑side comparison of two users.
 
 **Example:**
 ```bash
-curl https://githubsmartapi.vercel.app/api/compare/shineii86/gaearon
+curl https://githubsmartapi.vercel.app/api/vs/shineii86/gaearon
+```
+
+**Example response:**
+```json
+{
+  "user1": {
+    "username": "Shineii86",
+    "profile": {
+      "followers": 12,
+      "publicRepos": 30,
+      "accountAgeYears": 2
+    },
+    "stats": {
+      "totalStars": 65,
+      "totalRepos": 30,
+      "activeRepos": 17,
+      "totalContributions": 1244,
+      "currentStreak": 2,
+      "longestStreak": 13
+    },
+    "languages": {
+      "HTML": 17,
+      "TypeScript": 1,
+      "JavaScript": 4,
+      "CSS": 1,
+      "Jupyter Notebook": 1
+    },
+    "score": 69,
+    "rank": "B",
+    "level": 69,
+    "rankName": "MASTER",
+    "rankWithBullet": "MASTER • LV69"
+  },
+  "user2": {
+    "username": "github",
+    "profile": {
+      "followers": 72271,
+      "publicRepos": 540,
+      "accountAgeYears": 17
+    },
+    "stats": {
+      "totalStars": 557973,
+      "totalRepos": 100,
+      "activeRepos": 100,
+      "totalContributions": 0,
+      "currentStreak": 0,
+      "longestStreak": 0
+    },
+    "languages": {
+      "Python": 2,
+      "TypeScript": 17,
+      "Go": 7,
+      "C": 3,
+      "Vim Script": 1,
+      "EJS": 1,
+      "HTML": 3,
+      "JavaScript": 15,
+      "CodeQL": 2,
+      "Shell": 5,
+      "Ruby": 9,
+      "Swift": 1,
+      "DIGITAL Command Language": 1,
+      "Rust": 1,
+      "C#": 2,
+      "Java": 1,
+      "Jupyter Notebook": 2,
+      "C++": 1,
+      "CSS": 1,
+      "CoffeeScript": 1
+    },
+    "score": 100,
+    "rank": "SSS",
+    "level": 100,
+    "rankName": "GODLIKE",
+    "rankWithBullet": "GODLIKE • LV100"
+  }
+}
 ```
 
 ### `GET /api/badge/:username`
@@ -267,6 +375,34 @@ Returns a **large animated SVG profile card** (500×350) with avatar, stats, ran
 
 <!-- Custom background #3 with light theme -->
 ![Profile Card](https://githubsmartapi.vercel.app/api/card/shineii86?bgImage=3&theme=light)
+```
+
+### `GET /api/rank-badge/:username`
+
+Returns a **shields.io‑style badge** showing `Rank MASTER` (gold text).  
+Supports `?theme=light` (white background) or `?theme=dark` (grey background).
+
+| **Light Rank Preview** | **Dark Rank Preview** |
+| ----------------------- | ---------------------- |
+| [![Light Badge](https://githubsmartapi.vercel.app/api/rank-badge/Shineii86?theme=light)](https://githubsmartapi.vercel.app) | [![Light Dark](https://githubsmartapi.vercel.app/api/rank-badge/Shineii86?theme=Dark)](https://githubsmartapi.vercel.app) |
+
+**Example:**
+```markdown
+![Rank](https://githubsmartapi.vercel.app/api/rank-badge/Shineii86?theme=dark)
+```
+
+### `GET /api/level-badge/:username`
+
+Returns a **shields.io‑style badge** showing `Level 90` (blue text).  
+Supports `?theme=light` or `?theme=dark`.
+
+| **Light Level Preview** | **Dark Level Preview** |
+| ----------------------- | ---------------------- |
+| [![Light Badge](https://githubsmartapi.vercel.app/api/level-badge/Shineii86?theme=light)](https://githubsmartapi.vercel.app) | [![Light Dark](https://githubsmartapi.vercel.app/api/level-badge/Shineii86?theme=Dark)](https://githubsmartapi.vercel.app) |
+
+**Example:**
+```markdown
+![Level](https://githubsmartapi.vercel.app/api/level-badge/Shineii86?theme=light)
 ```
 
 ---
