@@ -7,7 +7,8 @@
  * - SVG badge (/api/badge/:username) – avatar, name, rank with level (e.g., "MYTHIC • LV90")
  * - SVG profile card (/api/card/:username) – avatar, name, username+level, rank name only,
  *   following/followers, watermark, optional custom background images (?bgImage=1..6)
- * - Shields.io badges: /api/rank-badge/:username ("Rank MASTER"), /api/rank-level/:username ("Level 90")
+ * - Shields.io badges: /api/rank-badge/:username ("Rank MASTER" with separate colors),
+ *   /api/rank-level/:username ("Level 90" with separate colors)
  * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
  * - Light/dark themes via ?theme=light|dark
  * - Google Sans font stack (fallback to Product Sans, sans-serif)
@@ -22,7 +23,7 @@ import { analyzeUser } from '../services/analysis.service.js';
 import { calculateScore } from '../services/scoring.service.js';
 import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
-import { getRankName, getRankWithBullet } from '../utils/rank.js';
+import { getRankName, getRankWithBullet, getRankDetails } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
@@ -63,6 +64,43 @@ export const getUserAnalysisData = async (username) => {
   const scoreData = calculateScore(analysis);
   return { analysis, scoreData };
 };
+
+// ----------------------------------------------------------------------
+// Dynamic colors for rank names (based on your rank tiers)
+// ----------------------------------------------------------------------
+function getRankColor(rankName) {
+  const colors = {
+    'BEGINNER':    '#9ca3af',   // gray
+    'NOVICE':      '#6b7280',   // darker gray
+    'APPRENTICE':  '#3b82f6',   // blue
+    'DEVELOPER':   '#10b981',   // green
+    'EXPERT':      '#06b6d4',   // cyan
+    'ELITE':       '#8b5cf6',   // purple
+    'MASTER':      '#f59e0b',   // amber
+    'GRANDMASTER': '#ef4444',   // red
+    'LEGEND':      '#ec489a',   // pink
+    'MYTHIC':      '#d946ef',   // fuchsia
+    'GODLIKE':     '#ffaa44'    // gold-orange
+  };
+  return colors[rankName] || '#fbbf24'; // fallback yellow
+}
+
+// ----------------------------------------------------------------------
+// Dynamic color for level number based on tier (same mapping as rank colors)
+// ----------------------------------------------------------------------
+function getLevelColor(level) {
+  if (level >= 100) return '#ffaa44';     // GODLIKE gold
+  if (level >= 90)  return '#d946ef';     // MYTHIC fuchsia
+  if (level >= 80)  return '#ec489a';     // LEGEND pink
+  if (level >= 70)  return '#ef4444';     // GRANDMASTER red
+  if (level >= 60)  return '#f59e0b';     // MASTER amber
+  if (level >= 50)  return '#8b5cf6';     // ELITE purple
+  if (level >= 40)  return '#06b6d4';     // EXPERT cyan
+  if (level >= 30)  return '#10b981';     // DEVELOPER green
+  if (level >= 20)  return '#3b82f6';     // APPRENTICE blue
+  if (level >= 10)  return '#6b7280';     // NOVICE gray
+  return '#9ca3af';                       // BEGINNER light gray
+}
 
 // ----------------------------------------------------------------------
 // GET /api/user/:username – JSON with level, rankName, rankWithBullet
@@ -189,7 +227,8 @@ export const generateBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/rank-badge/:username – shows "Rank MASTER" (label + rank name)
+// GET /api/rank-badge/:username – shows "Rank MASTER" with separate colors:
+//   "Rank " in neutral gray, rank name in dynamic rank color
 // Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankBadge = async (req, res) => {
@@ -199,17 +238,21 @@ export const generateRankBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const rankName = getRankName(scoreData.score);
-    const displayText = `RANK: ${rankName}`;
-
+    
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
-    const rankColor = '#fbbf24';
+    const labelColor = '#64748b';  // neutral gray for "Rank "
+    const rankColor = getRankColor(rankName);
 
-    const width = Math.max(90, displayText.length * 8 + 20);
+    const labelText = "RANK ";
+    const rankText = rankName;
+    const fullText = labelText + rankText;
+    const width = Math.max(90, fullText.length * 8 + 20);
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
   <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="${width/2}" y="18" text-anchor="middle" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(displayText)}</text>
+  <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
+  <text x="${8 + labelText.length * 7}" y="18" fill="${rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(rankText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -222,7 +265,8 @@ export const generateRankBadge = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/rank-level/:username – shows "Level 90" (label + level number)
+// GET /api/rank-level/:username – shows "Level 90" with separate colors:
+//   "Level " in neutral gray, level number in dynamic level color
 // Supports ?theme=light|dark
 // ----------------------------------------------------------------------
 export const generateRankLevelBadge = async (req, res) => {
@@ -232,17 +276,21 @@ export const generateRankLevelBadge = async (req, res) => {
 
     const { scoreData } = await getUserAnalysisData(username);
     const level = Math.floor(scoreData.score);
-    const displayText = `LEVEL: ${level}`;
-
+    
     const bgColor = theme === 'light' ? '#f8fafc' : '#1f2937';
-    const levelColor = '#3b82f6';
+    const labelColor = '#64748b';  // neutral gray for "Level "
+    const levelColor = getLevelColor(level);
 
-    const width = Math.max(80, displayText.length * 8 + 20);
+    const labelText = "Level ";
+    const levelText = level.toString();
+    const fullText = labelText + levelText;
+    const width = Math.max(80, fullText.length * 8 + 20);
 
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28">
   <rect width="${width}" height="28" rx="6" fill="${bgColor}" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="${width/2}" y="18" text-anchor="middle" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(displayText)}</text>
+  <text x="8" y="18" fill="${labelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(labelText)}</text>
+  <text x="${8 + labelText.length * 7}" y="18" fill="${levelColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="bold">${escapeXml(levelText)}</text>
 </svg>`;
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
