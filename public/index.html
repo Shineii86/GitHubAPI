@@ -734,12 +734,40 @@
             box-shadow: var(--shadow-hover);
             border-color: var(--primary);
         }
+
         .rank-card .rank-name {
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            font-size: 1.8rem;
-            font-weight: 500;
+            font-weight: 800;
+            font-size: clamp(1.1rem, 5vw, 1.55rem);
             margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+            word-break: break-word;
+            white-space: normal;
+            line-height: 1.2;
+            max-width: 100%;
+            display: inline-block;
+            text-align: center;
         }
+            
+        @media (max-width: 480px) {
+           .rank-card .rank-name {
+                font-size: 1rem;
+            }
+           .rank-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+           .rank-card {
+                padding: 1.2rem 0.75rem;
+            }
+        }
+
+        @media (min-width: 481px) and (max-width: 768px) {
+            .rank-card .rank-name {
+                font-size: 1.2rem;
+            }
+        }
+        
         .rank-card .rank-range {
             font-size: 0.9rem;
             color: var(--text-secondary);
