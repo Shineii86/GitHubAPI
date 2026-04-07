@@ -2,20 +2,14 @@ import express from 'express';
 import {
   getUserAnalysis,
   compareUsers,
-  generateBadge,
-  generateRankBadge,
   generateProfileCard,
-  generateRankLevelBadge,
 } from '../controllers/user.controller.js';
 
 const router = express.Router();
 
 router.get('/user/:username', getUserAnalysis);
 router.get('/vs/:user1/:user2', compareUsers);
-router.get('/badge/:username', generateBadge);
 router.get('/card/:username', generateProfileCard);
-router.get('/rank-badge/:username', generateRankBadge);
-router.get('/level-badge/:username', generateRankLevelBadge);
 
 router.get('/', (req, res) => {
   res.json({
@@ -24,10 +18,7 @@ router.get('/', (req, res) => {
     endpoints: [
       '/api/user/:username',
       '/api/vs/:user1/:user2',
-      '/api/badge/:username',
       '/api/card/:username',
-      'api/rank-badge/:username',
-      'api/level-badge/:username',
     ],
     documentation: 'https://github.com/Shineii86/GitHubAPI',
   });
