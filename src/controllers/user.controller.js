@@ -1,13 +1,18 @@
 /**
- * User controller – Instagram-style profile cards with Google Sans fonts, game‑style ranks, base64 avatars.
+ * User controller – all endpoints with Google Sans fonts, game‑style ranks, base64 avatars.
  * 
  * Features:
  * - JSON analysis (/api/user/:username) with level, rankName, rankWithBullet
  * - Side‑by‑side comparison (/api/compare/:user1/:user2)
- * - Instagram-style SVG profile card (/api/card/:username) – username•level, avatar+stats, rank, bio
+ * - SVG profile card (/api/card/:username) – Instagram‑like layout:
+ *   [Username] • [Level]
+ *   [Profile Picture]  [Followers]  [Following]
+ *   [Rank]
+ *   [Bio]
+ *   Optional custom background images (?bgImage=1..6)
+ * - Shields.io badges: /api/rank-level/:username ("Level 90" with separate colors)
  * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
  * - Light/dark themes via ?theme=light|dark
- * - Custom backgrounds via ?bgImage=1..6
  * - Google Sans font stack (fallback to Product Sans, sans-serif)
  * 
  * Author: Shinei Nouzen (@Shineii86)
@@ -25,14 +30,15 @@ import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
 // Custom background images for the profile card (hardcoded URLs)
+// Add as many as you want – index starts at 1 for query param ?bgImage=1
 // ----------------------------------------------------------------------
 const CUSTOM_BG = [
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG2.png',
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG3.png',
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',   // ?bgImage=1
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG2.png',   // ?bgImage=2
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG3.png',   // ?bgImage=3
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',   // ?bgImage=4
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',   // ?bgImage=5
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',   // ?bgImage=6
 ];
 
 async function getBase64ImageFromUrl(url) {
@@ -62,43 +68,6 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// Dynamic colors for rank names
-// ----------------------------------------------------------------------
-function getRankColor(rankName) {
-  const colors = {
-    'BEGINNER':    '#9ca3af',
-    'NOVICE':      '#6b7280',
-    'APPRENTICE':  '#3b82f6',
-    'DEVELOPER':   '#10b981',
-    'EXPERT':      '#06b6d4',
-    'ELITE':       '#8b5cf6',
-    'MASTER':      '#f59e0b',
-    'GRANDMASTER': '#ef4444',
-    'LEGEND':      '#ec489a',
-    'MYTHIC':      '#d946ef',
-    'GODLIKE':     '#ffaa44'
-  };
-  return colors[rankName] || '#fbbf24';
-}
-
-// ----------------------------------------------------------------------
-// Dynamic color for level number based on tier
-// ----------------------------------------------------------------------
-function getLevelColor(level) {
-  if (level >= 100) return '#ffaa44';
-  if (level >= 90)  return '#d946ef';
-  if (level >= 80)  return '#ec489a';
-  if (level >= 70)  return '#ef4444';
-  if (level >= 60)  return '#f59e0b';
-  if (level >= 50)  return '#8b5cf6';
-  if (level >= 40)  return '#06b6d4';
-  if (level >= 30)  return '#10b981';
-  if (level >= 20)  return '#3b82f6';
-  if (level >= 10)  return '#6b7280';
-  return '#9ca3af';
-}
-
-// ----------------------------------------------------------------------
 // GET /api/user/:username – JSON with level, rankName, rankWithBullet
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
@@ -106,7 +75,6 @@ export const getUserAnalysis = async (req, res) => {
     const { username } = req.params;
     const cached = await getCached(`user:${username}`);
     if (cached) return res.json({ ...cached, cached: true });
-    
     const { analysis, scoreData } = await getUserAnalysisData(username);
     let aiSummary = null;
     if (process.env.OPENAI_API_KEY) {
@@ -176,20 +144,19 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – Instagram-style profile card
+// GET /api/card/:username – Instagram‑like profile card
+// Supports ?theme=light|dark, ?bgImage=1..6
 // Layout:
 //   [Username] • [Level]
 //   [Profile Picture]  [Followers]  [Following]
 //   [Rank]
 //   [Bio]
-// Supports ?theme=light|dark, ?bgImage=1..6
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
     
-    // Handle custom background
     const bgImageIndex = parseInt(req.query.bgImage, 10);
     let bgImageDataUrl = null;
     if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
@@ -206,151 +173,111 @@ export const generateProfileCard = async (req, res) => {
     const { followers, following, bio, name, avatar_url } = rawUser;
     const { score } = scoreData;
     const displayName = name || username;
-    const shortBio = bio ? (bio.length > 80 ? bio.slice(0, 77) + '...' : bio) : 'GitHub Developer';
+    const shortBio = bio ? (bio.length > 70 ? bio.slice(0, 67) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
     const rankName = getRankName(score);
-    const rankColor = getRankColor(rankName);
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
-    // Card dimensions
-    const width = 420;
-    const height = 520;
-    
-    // Theme colors
+    const width = 500;
+    const height = 420;  // Slightly taller to fit new layout
+    const avatarSize = 90;
+    const avatarX = 35;
+    const avatarY = 90;
+
     const colors = theme === 'light' ? {
-      bgPrimary: '#ffffff',
-      bgSecondary: '#f8fafc',
       textPrimary: '#0f172a',
       textSecondary: '#475569',
       textMuted: '#64748b',
-      border: '#e2e8f0',
-      avatarBorder: '#ffffff',
-      watermarkColor: '#94a3b8',
+      rankColor: '#f97316',
+      avatarGlow: '#cbd5e1',
+      watermarkColor: '#9ca3af',
       overlayColor: 'rgba(255, 255, 255, 0.85)',
+      statValue: '#0f172a',
+      statLabel: '#64748b',
     } : {
-      bgPrimary: '#1e293b',
-      bgSecondary: '#0f172a',
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
       textMuted: '#94a3b8',
-      border: '#334155',
-      avatarBorder: '#1e293b',
+      rankColor: '#fbbf24',
+      avatarGlow: '#334155',
       watermarkColor: '#64748b',
-      overlayColor: 'rgba(15, 23, 42, 0.85)',
+      overlayColor: 'rgba(0, 0, 0, 0.7)',
+      statValue: '#f8fafc',
+      statLabel: '#94a3b8',
     };
 
-    // Build background layer
-    let backgroundLayer = '';
+    let backgroundSvg = '';
     if (bgImageDataUrl) {
-      backgroundLayer = `
-    <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="140" preserveAspectRatio="xMidYMid slice" />
-    <rect width="100%" height="140" fill="${colors.overlayColor}" />
+      backgroundSvg = `
+    <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
+    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
       `;
     } else {
-      backgroundLayer = `
-    <rect width="100%" height="140" fill="url(#headerGrad)" />
+      backgroundSvg = `
+    <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" />
       `;
     }
 
-    // Stats positioning (next to avatar)
-    const avatarX = 24;
-    const avatarY = 100;
-    const avatarSize = 88;
-    const statsStartX = avatarX + avatarSize + 20;
-    
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${theme === 'light' ? '#6366f1' : '#7c3aed'}" />
-      <stop offset="100%" stop-color="${theme === 'light' ? '#8b5cf6' : '#a855f7'}" />
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${theme === 'light' ? '#f1f5f9' : '#0f172a'}" />
+      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#1e293b'}" />
     </linearGradient>
-    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.15"/>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.2"/>
     </filter>
     <clipPath id="avatarClip">
       <circle cx="${avatarX + avatarSize/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
     </clipPath>
   </defs>
 
-  <!-- Main card background -->
-  <rect width="${width}" height="${height}" rx="16" fill="${colors.bgPrimary}" filter="url(#cardShadow)" />
-  
-  <!-- Header gradient / custom bg -->
-  <rect width="${width}" height="140" rx="16" ry="16" />
-  <clipPath id="headerClip">
-    <rect width="${width}" height="140" rx="16" ry="16" />
-  </clipPath>
-  <g clip-path="url(#headerClip)">
-    ${backgroundLayer}
+  <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
+  ${backgroundSvg}
+
+  <!-- Row 1: Username • Level -->
+  <text x="${width/2}" y="48" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)} • LV${escapeXml(level)}</text>
+
+  <!-- Row 2: Avatar + Followers + Following -->
+  <!-- Avatar with glow -->
+  <circle cx="${avatarX + avatarSize/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 5}" fill="${colors.avatarGlow}" opacity="0.4"/>
+  <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
+
+  <!-- Followers stat block (to the right of avatar) -->
+  <g transform="translate(${avatarX + avatarSize + 40}, ${avatarY + 12})">
+    <text x="0" y="0" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="700">${escapeXml(followers)}</text>
+    <text x="0" y="20" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">Followers</text>
   </g>
 
-  <!-- Username • Level (top center) -->
-  <text x="${width/2}" y="32" text-anchor="middle" fill="${colors.textPrimary}" 
-        font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">
-    ${escapeXml(displayName)} • LV${escapeXml(level)}
-  </text>
-
-  <!-- Profile Picture with border -->
-  <circle cx="${avatarX + avatarSize/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 4}" fill="${colors.avatarBorder}" />
-  <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" 
-         clip-path="url(#avatarClip)" />
-
-  <!-- Followers / Following stats (right of avatar) -->
-  <g transform="translate(${statsStartX}, ${avatarY + 8})">
-    <text x="0" y="0" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="20" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="11">Following</text>
-  </g>
-  <g transform="translate(${statsStartX + 85}, ${avatarY + 8})">
-    <text x="0" y="0" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="20" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="11">Followers</text>
+  <!-- Following stat block -->
+  <g transform="translate(${avatarX + avatarSize + 160}, ${avatarY + 12})">
+    <text x="0" y="0" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="700">${escapeXml(following)}</text>
+    <text x="0" y="20" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">Following</text>
   </g>
 
-  <!-- Rank badge (prominent, colored) -->
-  <g transform="translate(${width/2}, 230)">
-    <rect x="-60" y="-18" width="120" height="36" rx="18" fill="${colors.bgSecondary}" stroke="${rankColor}" stroke-width="2"/>
-    <text x="0" y="6" text-anchor="middle" fill="${rankColor}" 
-          font-family="'Google Sans', 'Product Sans', sans-serif" font-size="16" font-weight="800">
-      ${escapeXml(rankName)}
-    </text>
-  </g>
+  <!-- Row 3: Rank (big, centered) -->
+  <text x="${width/2}" y="260" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="34" font-weight="800" letter-spacing="1">${escapeXml(rankName)}</text>
 
-  <!-- Bio section -->
-  <g transform="translate(24, 290)">
-    <rect width="${width - 48}" height="160" rx="12" fill="${colors.bgSecondary}" opacity="0.6"/>
-    <text x="16" y="24" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="13" font-weight="500" line-height="1.5">
-      ${escapeXml(shortBio)}
-    </text>
-  </g>
+  <!-- Row 4: Bio (centered, with some margin) -->
+  <text x="${width/2}" y="310" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" font-style="italic">${escapeXml(shortBio)}</text>
 
   <!-- Watermark -->
-  <text x="${width - 10}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" 
-        font-family="'Google Sans', 'Product Sans', sans-serif" font-size="8" opacity="0.7">
-    githubsmartapi.vercel.app
-  </text>
+  <text x="${width - 12}" y="${height - 12}" text-anchor="end" fill="${colors.watermarkColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
 </svg>`;
-
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.send(svg);
   } catch (err) {
     console.error('Card error:', err.message);
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const bg = theme === 'light' ? '#f8fafc' : '#1e293b';
-    const text = theme === 'light' ? '#0f172a' : '#f8fafc';
+    const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
+    const text = theme === 'light' ? '#111827' : '#f1f5f9';
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="420" height="520" viewBox="0 0 420 520">
-  <rect width="420" height="520" rx="16" fill="${bg}"/>
-  <text x="210" y="260" text-anchor="middle" fill="#ef4444" 
-        font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">
-    Error: ${escapeXml(String(err.message))}
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="420" viewBox="0 0 500 420">
+  <rect width="500" height="420" rx="20" fill="${bg}"/>
+  <text x="250" y="210" text-anchor="middle" fill="#ef4444" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
