@@ -29,7 +29,7 @@
 - [🚀 Quick Start](#-quick-start)
 - [📡 API Documentation](#-api-documentation)
   - [Get User Analysis](#get-apiuserusername)
-  - [Compare Users](#get-apicompareuser1user2)
+  - [Compare Users](#get-apivseuser1user2)
   - [SVG Badge](#get-apibadgeusername)
   - [Profile Card](#get-apicardusername)
 - [💻 Code Examples](#-code-examples)
@@ -57,17 +57,16 @@ Perfect for:
 
 ## ✨ Features
 
-| Feature | Description | Emoji |
-|---------|-------------|-------|
-| **Advanced Scoring** | 8 metrics → 0–100 score + game rank (GODLIKE → BEGINNER) | 🧮 |
-| **Contribution Streak** | Real current & longest streak from GraphQL calendar | 🔥 |
-| **AI Summaries** | GPT‑4o mini strengths/weaknesses analysis (optional) | 🤖 |
-| **Compare Users** | Side‑by‑side comparison of two developers | ⚖️ |
-| **SVG Badge** | Embeddable badge with avatar, rank & level – **no animation** | 🖼️ |
-| **Profile Card** | Beautiful animated SVG card (500×350) with **custom backgrounds**, theme overlays & Google Sans font | 🃏 |
-| **Redis Caching** | 5‑minute cache to reduce API calls (optional) | 🗄️ |
-| **Serverless Ready** | Deploy to Vercel in one click | 🌐 |
-| **Interactive Web UI** | Built‑in frontend to test the API live | 🌍 |
+| Feature | Description |
+|---------|-------------|
+| **Advanced Scoring** | 8 metrics → 0–100 score + game rank (GODLIKE → BEGINNER) |
+| **Contribution Streak** | Real current & longest streak from GraphQL calendar |
+| **AI Summaries** | GPT‑4o mini strengths/weaknesses analysis (optional) |
+| **Compare Users** | Side‑by‑side comparison of two developers |
+| **Profile Card** | Beautiful animated SVG card (500×350) with **custom backgrounds**, theme overlays & Google Sans font |
+| **Redis Caching** | 5‑minute cache to reduce API calls (optional) |
+| **Serverless Ready** | Deploy to Vercel in one click |
+| **Interactive Web UI** | Built‑in frontend to test the API live |
 
 ---
 
@@ -76,8 +75,7 @@ Perfect for:
 - **JSON analysis** – score, rank, level, rank name, stats, languages, AI summary  
 - **Compare two users** – side‑by‑side JSON comparison  
 - **SVG badge** – avatar + name + rank with level (e.g., `octocat MYTHIC • LV90`)  
-- **Profile card** – full card with avatar, name, username+level, rank name, following/followers, custom backgrounds  
-- **Shields.io badges** – `Rank MASTER` (gold) and `Level 90` (blue), light/dark theme support  
+- **Profile card** – full card with avatar, name, username+level, rank name, following/followers, custom backgrounds
 - **Optional AI summaries** (OpenAI GPT‑4o mini)  
 - **Redis caching** (5 min TTL)  
 - **Custom card backgrounds** – use `?bgImage=1` to `6` (add your own images in `CUSTOM_BG` array)  
@@ -90,10 +88,7 @@ Perfect for:
 |----------|-------------|---------|
 | `GET /api/user/:username` | Full JSON analysis | `/api/user/shineii86` |
 | `GET /api/vs/:user1/:user2` | Compare two users | `/api/vs/shineii86/octocat` |
-| `GET /api/badge/:username` | SVG badge (avatar + name + rank•LV) | `/api/badge/shineii86?theme=dark` |
 | `GET /api/card/:username` | Profile card (with custom backgrounds) | `/api/card/shineii86?theme=light&bgImage=1` |
-| `GET /api/rank-badge/:username` | Shields‑style “Rank MASTER” badge | `/api/rank-badge/shineii86?theme=dark` |
-| `GET /api/level-badge/:username` | Shields‑style “Level 90” badge | `/api/level-badge/shineii86?theme=light` |
 
 **Query parameters:**
 - `?theme=light` or `?theme=dark` (default dark)  
@@ -331,6 +326,9 @@ curl https://githubsmartapi.vercel.app/api/vs/shineii86/gaearon
 }
 ```
 
+### *[REMOVED]*
+<s>
+
 ### `GET /api/badge/:username`
 
 Returns an SVG badge with **profile photo, username, rank and level** (e.g., `MYTHIC • LV90`).  
@@ -351,6 +349,7 @@ Returns an SVG badge with **profile photo, username, rank and level** (e.g., `MY
 ```markdown
 ![GitHubAPI Badge](https://githubsmartapi.vercel.app/api/badge/Shineii86?theme=light)
 ```
+</s>
 
 ### `GET /api/card/:username`
 
@@ -377,6 +376,9 @@ Returns a **large animated SVG profile card** (500×350) with avatar, stats, ran
 ![Profile Card](https://githubsmartapi.vercel.app/api/card/shineii86?bgImage=3&theme=light)
 ```
 
+### *[REMOVED]*
+<s>
+  
 ### `GET /api/rank-badge/:username`
 
 Returns a **shields.io‑style badge** showing `Rank MASTER` (gold text).  
@@ -404,6 +406,7 @@ Supports `?theme=light` or `?theme=dark`.
 ```markdown
 ![Level](https://githubsmartapi.vercel.app/api/level-badge/Shineii86?theme=light)
 ```
+</s>
 
 ---
 
