@@ -228,22 +228,22 @@ export const generateProfileCard = async (req, res) => {
   <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
 
   <g>
-    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="22" font-weight="700">${escapeXml(displayName)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">@${escapeXml(username)} • LV${escapeXml(level)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13">${escapeXml(shortBio)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="700">${escapeXml(displayName)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15">@${escapeXml(username)} • Lv ${escapeXml(level)}</text>
+    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15">${escapeXml(shortBio)}</text>
   </g>
 
   <g>
-    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="36" font-weight="800">${escapeXml(rankName)}</text>
+    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="30" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
   <g transform="translate(${width/2 - 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Following</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15" font-weight="700">${escapeXml(following)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10">Following</text>
   </g>
   <g transform="translate(${width/2 + 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Followers</text>
+    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15" font-weight="700">${escapeXml(followers)}</text>
+    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10">Followers</text>
   </g>
 
   <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
