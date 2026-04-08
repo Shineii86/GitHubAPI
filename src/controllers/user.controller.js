@@ -1,15 +1,12 @@
 /**
- * User controller – all endpoints with Google Sans fonts, game‑style ranks, base64 avatars.
+ * User Controller – GitHub Profile API with Achievements
  * 
  * Features:
- * - JSON analysis (/api/user/:username) with level, rankName, rankWithBullet
- * - Side‑by‑side comparison (/api/compare/:user1/:user2)
- * - SVG profile card (/api/card/:username) – avatar, name, username+level, rank name only,
- *   following/followers, watermark, optional custom background images (?bgImage=1..6)
- * - NEW: GitHub Achievements icons with auto-adjustable grid layout
- * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
- * - Light/dark themes via ?theme=light|dark
- * - Google Sans font stack (fallback to Product Sans, sans-serif)
+ * - JSON analysis (/api/user/:username)
+ * - Comparison (/api/vs/:user1/:user2)
+ * - SVG Profile Card (/api/card/:username) with auto-adjustable achievements
+ * - Light/Dark themes, custom backgrounds, Redis caching, AI summaries
+ * - Game-style ranks, Google Sans fonts, base64 embedding
  * 
  * Author: Shinei Nouzen (@Shineii86)
  * License: MIT
@@ -21,13 +18,11 @@ import { analyzeUser } from '../services/analysis.service.js';
 import { calculateScore } from '../services/scoring.service.js';
 import { generateAISummary } from '../services/ai.service.js';
 import { getCached, setCached } from '../services/cache.service.js';
-import { fetchAchievements, getAchievementIconBase64 } from '../services/achievements.js';
-import { getRankName, getRankWithBullet, getRankDetails } from '../utils/rank.js';
+import { getRankName, getRankWithBullet } from '../utils/rank.js';
 import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
-// Custom background images for the profile card (hardcoded URLs)
-// Add as many as you want – index starts at 1 for query param ?bgImage=1
+// Configuration
 // ----------------------------------------------------------------------
 const CUSTOM_BG = [
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',
@@ -38,26 +33,82 @@ const CUSTOM_BG = [
   'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',
 ];
 
-/**
- * Fetch background image and convert to base64 data URL
- */
-async function getBase64ImageFromUrl(url) {
+const ACHIEVEMENT_CDN = 'https://github.githubassets.com/images/modules/profile/achievements';
+
+// Map known achievement names to their CDN filenames
+const ACHIEVEMENT_MAP = {
+  'Arctic Code Vault Contributor': 'arctic-code-vault-contributor.svg',
+  'Pair Extraordinaire': 'pair-extraordinaire.svg',
+  'Quickdraw': 'quickdraw.svg',
+  'YOLO': 'yolo.svg',
+  'Public Sponsor': 'public-sponsor.svg',
+  'Galaxy Brain': 'galaxy-brain.svg',
+  'Heart on Your Sleeve': 'heart-on-your-sleeve.svg',
+  'Starstruck': 'starstruck.svg',
+  'Pull Shark': 'pull-shark.svg',
+  'Code Explorer': 'code-explorer.svg',
+  'Open Source Champion': 'open-source-champion.svg'
+};
+
+// ----------------------------------------------------------------------
+// Helper Functions
+// ----------------------------------------------------------------------
+function escapeXml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[<>&'"]/g, ch => {
+    const map = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
+    return map[ch] || ch;
+  });
+}
+
+async function fetchImageAsBase64(url, fallbackSvg = null) {
   try {
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 10000,
-    });
-    const contentType = response.headers['content-type'];
-    const base64 = Buffer.from(response.data, 'binary').toString('base64');
-    return `data:${contentType};base64,${base64}`;
+    const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 4000 });
+    const type = res.headers['content-type'] || 'image/svg+xml';
+    return `${type};base64,${Buffer.from(res.data).toString('base64')}`;
   } catch (err) {
-    console.error('Failed to fetch background image:', url, err.message);
+    if (fallbackSvg) {
+      return `image/svg+xml;base64,${Buffer.from(fallbackSvg).toString('base64')}`;
+    }
     return null;
   }
 }
 
+// Robust achievement scraper with CDN mapping fallback
+async function fetchUserAchievements(username) {
+  try {
+    const res = await axios.get(`https://github.com/${username}`, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (compatible; GitHubAPI/1.0)',
+        'Accept': 'text/html'
+      },
+      timeout: 6000
+    });
+
+    const html = res.data;
+    const names = [];
+    
+    // Extract achievement names from aria-label or data-content
+    const regex = /(?:aria-label|data-content|title)="Achievement:\s*([^"]+)"/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const name = match[1].trim();
+      if (!names.includes(name)) names.push(name);
+    }
+
+    // Map names to CDN URLs, limit to 6
+    return names.slice(0, 6).map(name => ({
+      name,
+      iconUrl: `${ACHIEVEMENT_CDN}/${ACHIEVEMENT_MAP[name] || 'default.svg'}`
+    }));
+  } catch (err) {
+    console.warn(`[Achievements] Fallback for ${username}:`, err.message);
+    return []; // Graceful degradation: card renders without achievements
+  }
+}
+
 // ----------------------------------------------------------------------
-// Helper: get analysis + score (cached)
+// Core Data Helper
 // ----------------------------------------------------------------------
 export const getUserAnalysisData = async (username) => {
   const githubData = await fetchGitHubData(username);
@@ -68,14 +119,16 @@ export const getUserAnalysisData = async (username) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/user/:username – JSON with level, rankName, rankWithBullet
+// ENDPOINTS
 // ----------------------------------------------------------------------
+
+// GET /api/user/:username
 export const getUserAnalysis = async (req, res) => {
   try {
     const { username } = req.params;
     const cached = await getCached(`user:${username}`);
     if (cached) return res.json({ ...cached, cached: true });
-    
+
     const { analysis, scoreData } = await getUserAnalysisData(username);
     let aiSummary = null;
     if (process.env.OPENAI_API_KEY) {
@@ -83,280 +136,165 @@ export const getUserAnalysis = async (req, res) => {
     }
 
     const level = Math.floor(scoreData.score);
-    const rankName = getRankName(scoreData.score);
-    const rankWithBullet = getRankWithBullet(scoreData.score);
-
     const response = {
       username,
       score: scoreData.score,
       rank: scoreData.rank,
       level,
-      rankName,
-      rankWithBullet,
+      rankName: getRankName(scoreData.score),
+      rankWithBullet: getRankWithBullet(scoreData.score),
       profile: analysis.profile,
       stats: analysis.stats,
       topLanguages: analysis.languages,
       aiSummary,
-      fetchedAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString()
     };
+
     await setCached(`user:${username}`, response, 300);
     res.json(response);
   } catch (err) {
     console.error(err);
     const status = err.response?.status === 404 ? 404 : 500;
-    const message = err.response?.status === 404 ? 'GitHub user not found' : err.message;
-    res.status(status).json({ error: message });
+    res.status(status).json({ error: err.response?.status === 404 ? 'User not found' : err.message });
   }
 };
 
-// ----------------------------------------------------------------------
-// GET /api/vs/:user1/:user2 – includes level, rankName, rankWithBullet
-// ----------------------------------------------------------------------
+// GET /api/vs/:user1/:user2
 export const compareUsers = async (req, res) => {
   try {
     const { user1, user2 } = req.params;
-    const [data1, data2] = await Promise.all([
-      getUserAnalysisData(user1),
-      getUserAnalysisData(user2),
-    ]);
+    const [data1, data2] = await Promise.all([getUserAnalysisData(user1), getUserAnalysisData(user2)]);
 
-    const enrich = (data, username) => {
-      const level = Math.floor(data.scoreData.score);
-      const rankName = getRankName(data.scoreData.score);
-      const rankWithBullet = getRankWithBullet(data.scoreData.score);
-      return {
-        username,
-        ...data.analysis,
-        ...data.scoreData,
-        level,
-        rankName,
-        rankWithBullet,
-      };
-    };
-
-    res.json({
-      user1: enrich(data1, user1),
-      user2: enrich(data2, user2),
+    const enrich = (d, u) => ({
+      username: u,
+      ...d.analysis,
+      ...d.scoreData,
+      level: Math.floor(d.scoreData.score),
+      rankName: getRankName(d.scoreData.score),
+      rankWithBullet: getRankWithBullet(d.scoreData.score)
     });
+
+    res.json({ user1: enrich(data1, user1), user2: enrich(data2, user2) });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// ----------------------------------------------------------------------
-// GET /api/card/:username – FULL PROFILE CARD WITH ACHIEVEMENTS
-// Supports ?theme=light|dark, ?bgImage=1..6
-// ----------------------------------------------------------------------
+// GET /api/card/:username (SVG Profile Card)
 export const generateProfileCard = async (req, res) => {
   try {
     const { username } = req.params;
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
+    const bgIndex = parseInt(req.query.bgImage, 10);
     
-    // Handle custom background image
-    const bgImageIndex = parseInt(req.query.bgImage, 10);
-    let bgImageDataUrl = null;
-    if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
-      const rawUrl = CUSTOM_BG[bgImageIndex - 1];
-      bgImageDataUrl = await getBase64ImageFromUrl(rawUrl);
-    }
-
-    // Fetch core analysis data
-    const { analysis, scoreData } = await getUserAnalysisData(username);
-    
-    // Fetch raw GitHub user data
+    // 1. Fetch User Data
     const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
-      timeout: 5000,
+      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN || ''}` },
+      timeout: 5000
     });
 
-    // NEW: Fetch achievements
-    const achievements = await fetchAchievements(username);
-    
-    // Convert achievement icons to base64 for reliable SVG embedding
-    const achievementIcons = await Promise.all(
-      achievements.map(async (ach) => {
-        const base64 = await getAchievementIconBase64(ach.iconUrl);
-        return base64 ? { name: ach.name, src: base64 } : null;
-      })
-    ).then(results => results.filter(Boolean));
-
     const { followers, following, bio, name, avatar_url } = rawUser;
+    const { scoreData } = await getUserAnalysisData(username);
     const { score } = scoreData;
-    const displayName = name || username;
-    const shortBio = bio ? (bio.length > 40 ? bio.slice(0, 37) + '...' : bio) : 'GitHub Developer';
+
     const level = Math.floor(score);
     const rankName = getRankName(score);
+    const displayName = name || username;
+    const shortBio = bio ? (bio.length > 40 ? bio.slice(0, 37) + '...' : bio) : 'GitHub Developer';
 
-    const avatarBase64 = await getBase64Image(avatar_url);
+    // 2. Fetch Assets (Avatar + Achievements) in Parallel
+    const [avatarBase64, achievements, bgBase64] = await Promise.all([
+      getBase64Image(avatar_url),
+      fetchUserAchievements(username),
+      (!isNaN(bgIndex) && bgIndex >= 1 && bgIndex <= CUSTOM_BG.length)
+        ? fetchImageAsBase64(CUSTOM_BG[bgIndex - 1])
+        : null
+    ]);
 
-    // Card dimensions
-    const width = 500;
-    const height = 380; // Increased for achievements section
-    const avatarSize = 90;
-    const avatarX = width / 2 - avatarSize / 2;
-    const avatarY = 25;
+    // Convert achievement icons to base64
+    const achievementIcons = (await Promise.all(
+      achievements.map(a => fetchImageAsBase64(a.iconUrl))
+    )).filter(Boolean);
 
-    // Theme color palette
-    const colors = theme === 'light' ? {
-      textPrimary: '#0f172a',
-      textSecondary: '#475569',
-      textMuted: '#64748b',
-      rankColor: '#f97316',
-      avatarGlow: '#cbd5e1',
-      watermarkColor: '#9ca3af',
-      overlayColor: 'rgba(255, 255, 255, 0.85)',
-      badgeBg: 'rgba(255, 255, 255, 0.7)',
-      badgeBorder: 'rgba(0,0,0,0.08)',
-      badgeText: '#334155'
+    // 3. Layout & Theme Config
+    const W = 500, H = 380;
+    const avSize = 90, avX = W/2 - avSize/2, avY = 25;
+    
+    const c = theme === 'light' ? {
+      bg: '#ffffff', txt: '#0f172a', sub: '#475569', mut: '#64748b',
+      accent: '#f97316', glow: '#cbd5e1', mark: '#9ca3af',
+      ov: 'rgba(255,255,255,0.85)', badge: 'rgba(255,255,255,0.7)', bdr: 'rgba(0,0,0,0.08)'
     } : {
-      textPrimary: '#f8fafc',
-      textSecondary: '#cbd5e1',
-      textMuted: '#94a3b8',
-      rankColor: '#fbbf24',
-      avatarGlow: '#334155',
-      watermarkColor: '#64748b',
-      overlayColor: 'rgba(0, 0, 0, 0.75)',
-      badgeBg: 'rgba(255, 255, 255, 0.12)',
-      badgeBorder: 'rgba(255,255,255,0.15)',
-      badgeText: '#e2e8f0'
+      bg: '#1e293b', txt: '#f8fafc', sub: '#cbd5e1', mut: '#94a3b8',
+      accent: '#fbbf24', glow: '#334155', mark: '#64748b',
+      ov: 'rgba(0,0,0,0.75)', badge: 'rgba(255,255,255,0.12)', bdr: 'rgba(255,255,255,0.15)'
     };
 
-    // Background layer SVG
-    let backgroundSvg = '';
-    if (bgImageDataUrl) {
-      backgroundSvg = `
-    <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
-    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
-      `;
-    } else {
-      backgroundSvg = `
-    <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" />
-      `;
-    }
+    // 4. Build SVG Sections
+    const bgLayer = bgBase64 
+      ? `<image href="${bgBase64}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"/>
+         <rect width="100%" height="100%" fill="${c.ov}"/>`
+      : `<rect width="100%" height="100%" rx="20" fill="url(#bgGrad)"/>`;
 
-    // NEW: Generate achievements SVG grid (auto-adjustable)
-    let achievementsHtml = '';
+    let achHtml = '';
     if (achievementIcons.length > 0) {
-      const iconSize = 26;
-      const gap = 10;
-      const totalWidth = (achievementIcons.length * iconSize) + ((achievementIcons.length - 1) * gap);
-      const startX = (width - totalWidth) / 2;
-      const yStart = 315;
-
-      achievementsHtml = `
-    <!-- Achievements Trophy Case -->
-    <g transform="translate(${startX}, ${yStart})">
-      <!-- Glassmorphism backplate -->
-      <rect x="-8" y="-10" width="${totalWidth + 16}" height="42" rx="14" 
-            fill="${colors.badgeBg}" stroke="${colors.badgeBorder}" stroke-width="1.5"/>
+      const sz = 26, gap = 10;
+      const tw = achievementIcons.length * sz + (achievementIcons.length - 1) * gap;
+      const sx = (W - tw) / 2, sy = 315;
       
-      <!-- Achievement icons -->
-      ${achievementIcons.map((ach, index) => {
-        const x = index * (iconSize + gap);
-        return `
-        <g transform="translate(${x}, 0)">
-          <title>${escapeXml(ach.name)}</title>
-          <!-- Subtle hover effect simulation via slight scale -->
-          <image href="${escapeXml(ach.src)}" width="${iconSize}" height="${iconSize}" 
-                 style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.15))"/>
+      achHtml = `
+        <g transform="translate(${sx}, ${sy})">
+          <rect x="-8" y="-10" width="${tw + 16}" height="42" rx="14" 
+                fill="${c.badge}" stroke="${c.bdr}" stroke-width="1.5"/>
+          ${achievementIcons.map((src, i) => `
+            <g transform="translate(${i * (sz + gap)}, 0)">
+              <image href="${src}" width="${sz}" height="${sz}" 
+                     style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2))"/>
+            </g>`).join('')}
         </g>`;
-      }).join('')}
-    </g>
-      `;
     }
 
-    // Complete SVG card
+    // 5. Assemble Full SVG
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${theme === 'light' ? '#f1f5f9' : '#0f172a'}" />
-      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#1e293b'}" />
+      <stop offset="0%" stop-color="${theme === 'light' ? '#f1f5f9' : '#0f172a'}"/>
+      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#1e293b'}"/>
     </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/>
-    </filter>
-    <filter id="iconGlow">
-      <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <clipPath id="avatarClip">
-      <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
-    </clipPath>
-    <style>
-      .font-main { font-family: 'Google Sans', 'Product Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
-      .rank-text { font-weight: 800; letter-spacing: 0.5px; }
-      .stat-label { text-transform: uppercase; letter-spacing: 0.5px; font-size: 9px; }
-    </style>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/></filter>
+    <clipPath id="avClip"><circle cx="${W/2}" cy="${avY + avSize/2}" r="${avSize/2}"/></clipPath>
+    <style>.f{font-family:'Google Sans','Product Sans',-apple-system,sans-serif}</style>
   </defs>
 
-  <!-- Card base with shadow -->
-  <rect width="100%" height="100%" rx="20" filter="url(#shadow)" 
-        fill="${theme === 'light' ? '#ffffff' : '#1e293b'}"/>
-  
-  <!-- Background layer (image or gradient) -->
-  ${backgroundSvg}
+  <rect width="100%" height="100%" rx="20" filter="url(#shadow)" fill="${c.bg}"/>
+  ${bgLayer}
 
-  <!-- Avatar glow effect -->
-  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 10}" 
-          fill="${colors.avatarGlow}" opacity="0.35"/>
-  
-  <!-- Avatar image -->
-  <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" 
-         width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)"
-         style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1))"/>
+  <circle cx="${W/2}" cy="${avY + avSize/2}" r="${avSize/2 + 10}" fill="${c.glow}" opacity="0.35"/>
+  <image href="${avatarBase64 || ''}" x="${avX}" y="${avY}" width="${avSize}" height="${avSize}" clip-path="url(#avClip)"/>
 
-  <!-- User identity section -->
-  <g text-anchor="middle" class="font-main">
-    <text x="${width/2}" y="${avatarY + avatarSize + 30}" 
-          fill="${colors.textPrimary}" font-size="21" font-weight="700">
-      ${escapeXml(displayName)}
-    </text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 54}" 
-          fill="${colors.textSecondary}" font-size="14">
-      @${escapeXml(username)} • Lv ${escapeXml(level)}
-    </text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" 
-          fill="${colors.textMuted}" font-size="13">
-      ${escapeXml(shortBio)}
-    </text>
+  <g text-anchor="middle" class="f" fill="${c.txt}">
+    <text x="${W/2}" y="${avY + avSize + 30}" font-size="21" font-weight="700">${escapeXml(displayName)}</text>
+    <text x="${W/2}" y="${avY + avSize + 54}" font-size="14" fill="${c.sub}">@${escapeXml(username)} • Lv ${level}</text>
+    <text x="${W/2}" y="${avY + avSize + 76}" font-size="13" fill="${c.mut}">${escapeXml(shortBio)}</text>
   </g>
 
-  <!-- Rank badge display -->
   <g text-anchor="middle">
-    <text x="${width/2}" y="238" 
-          fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" 
-          font-size="31" class="rank-text">
-      ${escapeXml(rankName)}
-    </text>
+    <text x="${W/2}" y="238" fill="${c.accent}" font-family="'Google Sans',sans-serif" font-size="31" font-weight="800">${escapeXml(rankName)}</text>
   </g>
 
-  <!-- Stats: Following / Followers -->
-  <g transform="translate(${width/2 - 95}, 272)" text-anchor="middle" class="font-main">
-    <text x="0" y="0" fill="${colors.textPrimary}" font-size="17" font-weight="700">
-      ${escapeXml(following)}
-    </text>
-    <text x="0" y="19" fill="${colors.textSecondary}" class="stat-label">Following</text>
+  <g transform="translate(${W/2 - 95}, 272)" text-anchor="middle" class="f">
+    <text x="0" y="0" font-size="17" font-weight="700" fill="${c.txt}">${following}</text>
+    <text x="0" y="19" font-size="9" fill="${c.sub}" text-transform="uppercase" letter-spacing="0.5">Following</text>
   </g>
-  <g transform="translate(${width/2 + 95}, 272)" text-anchor="middle" class="font-main">
-    <text x="0" y="0" fill="${colors.textPrimary}" font-size="17" font-weight="700">
-      ${escapeXml(followers)}
-    </text>
-    <text x="0" y="19" fill="${colors.textSecondary}" class="stat-label">Followers</text>
+  <g transform="translate(${W/2 + 95}, 272)" text-anchor="middle" class="f">
+    <text x="0" y="0" font-size="17" font-weight="700" fill="${c.txt}">${followers}</text>
+    <text x="0" y="19" font-size="9" fill="${c.sub}" text-transform="uppercase" letter-spacing="0.5">Followers</text>
   </g>
 
-  <!-- NEW: Achievements section (auto-adjustable grid) -->
-  ${achievementsHtml}
+  ${achHtml}
 
-  <!-- Footer watermark -->
-  <text x="${width - 15}" y="${height - 12}" text-anchor="end" 
-        fill="${colors.watermarkColor}" font-family="sans-serif" font-size="9" opacity="0.6">
-    githubsmartapi.vercel.app
-  </text>
+  <text x="${W - 15}" y="${H - 12}" text-anchor="end" fill="${c.mark}" font-family="sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
 </svg>`;
 
     res.setHeader('Content-Type', 'image/svg+xml');
@@ -364,46 +302,17 @@ export const generateProfileCard = async (req, res) => {
     res.send(svg);
 
   } catch (err) {
-    console.error('Card generation error:', err.message);
-    
-    // Fallback error card
+    console.error('❌ Card Error:', err.message);
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
     const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
-    const text = theme === 'light' ? '#111827' : '#f1f5f9';
-    const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
+    const txt = theme === 'light' ? '#111827' : '#f1f5f9';
+    const errSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="380" viewBox="0 0 500 380">
-  <defs>
-    <linearGradient id="errGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${bg}"/>
-      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#334155'}"/>
-    </linearGradient>
-  </defs>
-  <rect width="500" height="380" rx="20" fill="url(#errGrad)"/>
-  <text x="250" y="170" text-anchor="middle" fill="#ef4444" 
-        font-family="sans-serif" font-size="20" font-weight="600">⚠️ Card Error</text>
-  <text x="250" y="200" text-anchor="middle" fill="${text}" 
-        font-family="sans-serif" font-size="14">${escapeXml(String(err.message))}</text>
-  <text x="250" y="240" text-anchor="middle" fill="${theme === 'light' ? '#64748b' : '#94a3b8'}" 
-        font-family="sans-serif" font-size="12">Try refreshing or check the username</text>
+  <rect width="100%" height="100%" rx="20" fill="${bg}"/>
+  <text x="250" y="170" text-anchor="middle" fill="#ef4444" font-family="sans-serif" font-size="20" font-weight="600">⚠️ Card Error</text>
+  <text x="250" y="205" text-anchor="middle" fill="${txt}" font-family="sans-serif" font-size="14">${escapeXml(err.message)}</text>
+  <text x="250" y="235" text-anchor="middle" fill="${theme === 'light' ? '#64748b' : '#94a3b8'}" font-family="sans-serif" font-size="12">Check username or try again later</text>
 </svg>`;
-    res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
+    res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errSvg);
   }
 };
-
-// ----------------------------------------------------------------------
-// Helper: Safe XML/HTML entity escape for SVG text content
-// ----------------------------------------------------------------------
-function escapeXml(str) {
-  if (str == null) return '';
-  const s = String(str);
-  return s.replace(/[<>&'"]/g, (ch) => {
-    switch (ch) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case "'": return '&apos;';
-      case '"': return '&quot;';
-      default: return ch;
-    }
-  });
-}
