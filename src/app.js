@@ -1,6 +1,3 @@
-/**
- * Main Express application.
- */
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,41 +12,59 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Security middleware
+// Security & performance middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Adjust as needed for SVG
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    },
+  },
 }));
 app.use(cors());
 app.use(compression());
 
-// Body parsing
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
-if (!config.isProduction) {
+// Request logging (only in development)
+if (config.nodeEnv !== 'production') {
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
     next();
   });
 }
 
-// Static files
-const publicPath = path.join(__dirname, '../public');
-app.use(express.static(publicPath, { maxAge: '1h' }));
-
 // API routes
 app.use('/api', userRoutes);
 
-// Root route
+// Static files – serve from /public, but gracefully handle missing directory
+const publicPath = path.join(__dirname, '..', 'public');
+app.use(express.static(publicPath, { fallthrough: true }));
+
+// Root route – fallback to simple message if index.html missing
 app.get('/', (req, res) => {
-  res.sendFile(path.join(publicPath, 'index.html'));
+  res.sendFile(path.join(publicPath, 'index.html'), (err) => {
+    if (err) {
+      // If index.html is missing (e.g., in pure API deployment), show API info
+      res.json({
+        service: 'GitHub Smart API',
+        version: '2.0.0',
+        endpoints: ['/api/user/:username', '/api/vs/:user1/:user2', '/api/card/:username'],
+        docs: 'https://github.com/Shineii86/GitHubAPI',
+      });
+    }
+  });
 });
 
-// Catch-all for SPA
+// Catch-all – SPA fallback or API 404
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(publicPath, 'index.html'));
+    res.sendFile(path.join(publicPath, 'index.html'), (err) => {
+      if (err) res.status(404).json({ error: 'Not found' });
+    });
   } else {
     res.status(404).json({ error: 'API endpoint not found' });
   }
@@ -57,28 +72,9 @@ app.get('*', (req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  console.error('Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = app.listen(config.port, () => {
-    console.log(`🚀 Server running on http://localhost:${config.port}`);
-    console.log(`📊 API: http://localhost:${config.port}/api`);
-  });
-
-  // Graceful shutdown
-  const shutdown = () => {
-    console.log('🛑 Shutting down gracefully...');
-    server.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-    setTimeout(() => process.exit(1), 10000);
-  };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-}
-
+// Export for Vercel
 export default app;
