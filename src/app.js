@@ -1,93 +1,66 @@
 /**
- * Express Application v3.0
- * Security headers, compression, and health checks
+ * Main Express application.
+ * Serves:
+ * - API routes under /api
+ * - Static frontend website (from /public folder)
  */
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import helmet from 'helmet';
-import compression from 'compression';
 import userRoutes from './routes/user.routes.js';
 import { config } from './config/env.js';
-import { cache } from './services/cache.service.js';
 
+// Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false // Allow images from GitHub
-}));
+// Middleware
+app.use(express.json());
 
-app.use(compression());
-app.use(express.json({ limit: '10kb' })); // Prevent large payloads
-
-// Request logging
+// Request logging (development only)
 if (config.nodeEnv !== 'production') {
   app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    console.log(`${req.method} ${req.url}`);
     next();
   });
 }
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  const cacheStats = cache.getStats();
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '3.0.0',
-    cache: cacheStats,
-    uptime: process.uptime()
-  });
-});
+// Serve static frontend files from /public
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath));
 
-// API routes
+// API routes (all under /api)
 app.use('/api', userRoutes);
 
-// Static files
-const publicPath = path.join(__dirname, '../public');
-app.use(express.static(publicPath, { maxAge: '1d' }));
+// Root route – serve the main HTML page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(publicPath, 'index.html'));
+});
 
-// SPA fallback
+// Catch-all for any other non-API routes – serve the frontend (SPA style)
 app.get('*', (req, res) => {
+  // If the request is not for an API endpoint, serve index.html
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(publicPath, 'index.html'));
   } else {
-    res.status(404).json({ error: 'API endpoint not found', path: req.path });
+    res.status(404).json({ error: 'API endpoint not found' });
   }
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'INTERNAL_ERROR',
-    message: config.nodeEnv === 'production' ? 'Internal server error' : err.message,
-    timestamp: new Date().toISOString()
-  });
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
+// Start server only when run directly (not imported as a module)
 if (import.meta.url === `file://${process.argv[1]}`) {
   app.listen(config.port, () => {
-    console.log(`
-    🚀 GitHub Analyzer v3.0.0
-    ━━━━━━━━━━━━━━━━━━━━━━━━
-    📊 API:    http://localhost:${config.port}/api/user/octocat
-    🏥 Health: http://localhost:${config.port}/health
-    🌐 Web:    http://localhost:${config.port}
-    `);
+    console.log(`🚀 Server running on http://localhost:${config.port}`);
+    console.log(`📊 API: http://localhost:${config.port}/api/user/octocat`);
+    console.log(`🌐 Website: http://localhost:${config.port}`);
   });
 }
 
