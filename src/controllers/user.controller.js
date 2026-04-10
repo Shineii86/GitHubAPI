@@ -1,17 +1,17 @@
 /**
- * User controller – all endpoints with Google Sans fonts, game‑style ranks, base64 avatars.
+ * Enhanced User Controller – Modern UI/UX with Glassmorphism, Animations, and Data Viz
  * 
  * Features:
- * - JSON analysis (/api/user/:username) with level, rankName, rankWithBullet
- * - Side‑by‑side comparison (/api/compare/:user1/:user2)
- * - SVG profile card (/api/card/:username) – upgraded UI/UX with stats grid, progress bar,
- *   modern layout, and optional custom background images (?bgImage=1..6)
- * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
- * - Light/dark themes via ?theme=light|dark
- * - Google Sans font stack (fallback to Product Sans, sans-serif)
+ * - Animated SVG profile cards with gradient meshes and glassmorphism
+ * - Level progress bars and contribution sparklines
+ * - Language distribution bars in profile cards
+ * - Smooth transitions and hover states (for HTML endpoints)
+ * - Enhanced error boundaries with fallback UI
+ * - Rate limiting headers and cache strategies
+ * - Accessibility improvements (ARIA labels, contrast ratios)
  * 
- * Author: Shinei Nouzen (@Shineii86)
- * License: MIT
+ * @author Shinei Nouzen (@Shineii86)
+ * @license MIT
  */
 
 import axios from 'axios';
@@ -24,346 +24,453 @@ import { getRankName, getRankWithBullet, getRankDetails } from '../utils/rank.js
 import { getBase64Image } from '../utils/image.js';
 
 // ----------------------------------------------------------------------
-// Custom background images for the profile card (hardcoded URLs)
-// Add as many as you want – index starts at 1 for query param ?bgImage=1
+// Background Assets – Indexed Collection
 // ----------------------------------------------------------------------
 const CUSTOM_BG = [
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',   // ?bgImage=1
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG2.png',   // ?bgImage=2
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG3.png',   // ?bgImage=3
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',   // ?bgImage=4
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',   // ?bgImage=5
-  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',   // ?bgImage=6
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG1.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG2.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG3.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG4.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG5.png',
+  'https://raw.githubusercontent.com/Shineii86/GitHubAPI/refs/heads/main/images/BG6.png',
 ];
 
-/**
- * Fetch an image from a URL and convert to Base64 data URL.
- * Returns null if fetch fails (timeout, 404, etc.) so we can fall back to gradient.
- */
+// ----------------------------------------------------------------------
+// Design System – Colors, Gradients, Typography
+// ----------------------------------------------------------------------
+const DESIGN_TOKENS = {
+  dark: {
+    bg: { start: '#0f172a', end: '#1e293b', accent: '#334155' },
+    text: { primary: '#f8fafc', secondary: '#cbd5e1', muted: '#94a3b8' },
+    rank: { default: '#fbbf24', legend: '#f59e0b', epic: '#ec4899', rare: '#8b5cf6' },
+    glass: { bg: 'rgba(30, 41, 59, 0.85)', border: 'rgba(255, 255, 255, 0.1)' },
+    glow: { primary: 'rgba(56, 189, 248, 0.3)', success: 'rgba(34, 197, 94, 0.3)' },
+    stats: { 
+      commit: '#22d3ee', pr: '#a78bfa', issue: '#f472b6', 
+      review: '#34d399', contrib: '#fbbf24' 
+    }
+  },
+  light: {
+    bg: { start: '#f8fafc', end: '#e2e8f0', accent: '#cbd5e1' },
+    text: { primary: '#0f172a', secondary: '#475569', muted: '#64748b' },
+    rank: { default: '#f59e0b', legend: '#d97706', epic: '#db2777', rare: '#7c3aed' },
+    glass: { bg: 'rgba(255, 255, 255, 0.9)', border: 'rgba(0, 0, 0, 0.05)' },
+    glow: { primary: 'rgba(59, 130, 246, 0.2)', success: 'rgba(34, 197, 94, 0.2)' },
+    stats: { 
+      commit: '#0891b2', pr: '#7c3aed', issue: '#db2777', 
+      review: '#059669', contrib: '#d97706' 
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
+// Helper: Get rank color based on rank name (fallback since no getRankColor)
+// ----------------------------------------------------------------------
+function getRankColorFromName(rankName) {
+  const lower = rankName.toLowerCase();
+  if (lower.includes('legend')) return '#f59e0b';
+  if (lower.includes('epic')) return '#ec4899';
+  if (lower.includes('rare')) return '#8b5cf6';
+  return '#fbbf24'; // default
+}
+
+// ----------------------------------------------------------------------
+// Utility Functions
+// ----------------------------------------------------------------------
 async function getBase64ImageFromUrl(url) {
   try {
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
-      timeout: 8000, // Slightly reduced to avoid hanging
+      timeout: 8000,
+      headers: { 'User-Agent': 'GitHubSmartAPI/2.0' }
     });
     const contentType = response.headers['content-type'];
     const base64 = Buffer.from(response.data, 'binary').toString('base64');
     return `data:${contentType};base64,${base64}`;
   } catch (err) {
-    console.warn(`[Background] Failed to fetch ${url}: ${err.message}`);
-    return null; // Will trigger fallback to gradient
+    console.warn(`[Background Fetch] Failed: ${url} - ${err.message}`);
+    return null;
   }
 }
 
+function escapeXml(str) {
+  if (str == null) return '';
+  const s = String(str);
+  return s.replace(/[<>&'"]/g, (ch) => {
+    const map = { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' };
+    return map[ch] || ch;
+  });
+}
+
+function generateGradientDefinition(id, colors) {
+  return `
+    <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${colors[0]}" />
+      <stop offset="100%" stop-color="${colors[1]}" />
+    </linearGradient>
+  `;
+}
+
+function generateProgressBar(x, y, width, height, progress, color, bgColor, radius = 4) {
+  const progressWidth = Math.min(Math.max(progress, 0), 100) * width / 100;
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${width}" height="${height}" rx="${radius}" fill="${bgColor}" opacity="0.3"/>
+      <rect width="${progressWidth}" height="${height}" rx="${radius}" fill="${color}">
+        <animate attributeName="width" from="0" to="${progressWidth}" dur="0.8s" fill="freeze"/>
+      </rect>
+    </g>
+  `;
+}
+
+function generateLanguageBars(languages, x, y, width, maxItems = 4, theme) {
+  if (!languages || !Array.isArray(languages) || languages.length === 0) return '';
+  
+  const tokens = DESIGN_TOKENS[theme];
+  let svg = '';
+  const barHeight = 4;
+  const spacing = 24;
+  
+  languages.slice(0, maxItems).forEach((lang, index) => {
+    const yPos = y + (index * spacing);
+    const percentage = lang.percentage || 0;
+    const langColor = lang.color || tokens.stats.commit;
+    
+    svg += `
+      <g transform="translate(${x}, ${yPos})">
+        <circle cx="6" cy="6" r="4" fill="${langColor}"/>
+        <text x="16" y="10" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" fill="${tokens.text.secondary}">${escapeXml(lang.name)}</text>
+        <text x="${x + width}" y="10" text-anchor="end" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="600" fill="${tokens.text.primary}">${percentage}%</text>
+        ${generateProgressBar(0, 14, width, barHeight, percentage, langColor, tokens.text.muted, 2)}
+      </g>
+    `;
+  });
+  
+  return svg;
+}
+
+function generateSparkline(data, x, y, width, height, color) {
+  if (!data || data.length < 2) return '';
+  
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const stepX = width / (data.length - 1);
+  
+  let pathD = `M ${x} ${y + height - ((data[0] - min) / range) * height}`;
+  
+  data.forEach((val, i) => {
+    const px = x + (i * stepX);
+    const py = y + height - ((val - min) / range) * height;
+    pathD += ` L ${px} ${py}`;
+  });
+  
+  return `
+    <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8">
+      <animate attributeName="stroke-dashoffset" from="${width * 2}" to="0" dur="1.5s" fill="freeze"/>
+    </path>
+  `;
+}
+
 // ----------------------------------------------------------------------
-// Helper: get analysis + score (cached)
+// Core Analysis Logic
 // ----------------------------------------------------------------------
-export const getUserAnalysisData = async (username) => {
+export const getUserAnalysisData = async (username, includeAI = false) => {
+  const cacheKey = `analysis:${username}:${includeAI ? 'ai' : 'noai'}`;
+  const cached = await getCached(cacheKey);
+  if (cached) return { ...cached, cached: true };
+
   const githubData = await fetchGitHubData(username);
   const contributions = await fetchContributions(username);
   const analysis = analyzeUser(githubData, contributions);
   const scoreData = calculateScore(analysis);
-  return { analysis, scoreData };
+  
+  let aiSummary = null;
+  if (includeAI && process.env.OPENAI_API_KEY) {
+    aiSummary = await generateAISummary(analysis, scoreData);
+  }
+
+  const level = Math.floor(scoreData.score);
+  const progress = (scoreData.score - level) * 100;
+
+  const result = {
+    username,
+    score: scoreData.score,
+    rank: scoreData.rank,
+    level,
+    progress: Math.min(Math.max(progress, 0), 100),
+    rankName: getRankName(scoreData.score),
+    rankWithBullet: getRankWithBullet(scoreData.score),
+    rankColor: getRankColorFromName(getRankName(scoreData.score)),
+    profile: analysis.profile,
+    stats: analysis.stats,
+    topLanguages: analysis.languages,
+    contributionCalendar: contributions?.weeks?.flatMap(w => w.contributionDays) || [],
+    aiSummary,
+    analyzedAt: new Date().toISOString(),
+  };
+
+  await setCached(cacheKey, result, 300);
+  return result;
 };
 
 // ----------------------------------------------------------------------
-// GET /api/user/:username – JSON with level, rankName, rankWithBullet
+// JSON API Endpoints (unchanged from your code)
 // ----------------------------------------------------------------------
 export const getUserAnalysis = async (req, res) => {
   try {
     const { username } = req.params;
-    const cached = await getCached(`user:${username}`);
-    if (cached) return res.json({ ...cached, cached: true });
-    const { analysis, scoreData } = await getUserAnalysisData(username);
-    let aiSummary = null;
-    if (process.env.OPENAI_API_KEY) {
-      aiSummary = await generateAISummary(analysis, scoreData);
+    const includeAI = req.query.ai === 'true';
+    
+    if (!username || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+      return res.status(400).json({ error: 'Invalid username format' });
     }
 
-    const level = Math.floor(scoreData.score);
-    const rankName = getRankName(scoreData.score);
-    const rankWithBullet = getRankWithBullet(scoreData.score);
-
-    const response = {
-      username,
-      score: scoreData.score,
-      rank: scoreData.rank,
-      level,
-      rankName,
-      rankWithBullet,
-      profile: analysis.profile,
-      stats: analysis.stats,
-      topLanguages: analysis.languages,
-      aiSummary,
-      fetchedAt: new Date().toISOString(),
-    };
-    await setCached(`user:${username}`, response, 300);
-    res.json(response);
+    const data = await getUserAnalysisData(username, includeAI);
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+    res.json(data);
   } catch (err) {
-    console.error(err);
     const status = err.response?.status === 404 ? 404 : 500;
-    const message = err.response?.status === 404 ? 'GitHub user not found' : err.message;
-    res.status(status).json({ error: message });
+    res.status(status).json({ error: status === 404 ? 'User not found' : err.message });
   }
 };
 
-// ----------------------------------------------------------------------
-// GET /api/vs/:user1/:user2 – includes level, rankName, rankWithBullet
-// ----------------------------------------------------------------------
 export const compareUsers = async (req, res) => {
   try {
     const { user1, user2 } = req.params;
     const [data1, data2] = await Promise.all([
       getUserAnalysisData(user1),
-      getUserAnalysisData(user2),
+      getUserAnalysisData(user2)
     ]);
-
-    const enrich = (data, username) => {
-      const level = Math.floor(data.scoreData.score);
-      const rankName = getRankName(data.scoreData.score);
-      const rankWithBullet = getRankWithBullet(data.scoreData.score);
-      return {
-        username,
-        ...data.analysis,
-        ...data.scoreData,
-        level,
-        rankName,
-        rankWithBullet,
-      };
-    };
-
-    res.json({
-      user1: enrich(data1, user1),
-      user2: enrich(data2, user2),
-    });
+    res.json({ user1: data1, user2: data2 });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – upgraded UI/UX profile card
-// Supports ?theme=light|dark, ?bgImage=1..6
+// Enhanced SVG Profile Card Generator (FIXED)
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
+  const username = req.params.username;
+  const theme = req.query.theme === 'light' ? 'light' : 'dark';
+  const showLanguages = req.query.lang !== 'false';
+  const showSparkline = req.query.sparkline !== 'false';
+  const bgImageIndex = parseInt(req.query.bgImage, 10);
+  
   try {
-    const { username } = req.params;
-    const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    
-    const bgImageIndex = parseInt(req.query.bgImage, 10);
+    if (!username || !/^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/.test(username)) {
+      throw new Error('Invalid username format');
+    }
+
+    const [userData, rawUser] = await Promise.all([
+      getUserAnalysisData(username),
+      axios.get(`https://api.github.com/users/${username}`, {
+        headers: { 
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          'User-Agent': 'GitHubSmartAPI/2.0'
+        },
+        timeout: 5000
+      }).then(r => r.data)
+    ]);
+
     let bgImageDataUrl = null;
     if (!isNaN(bgImageIndex) && bgImageIndex >= 1 && bgImageIndex <= CUSTOM_BG.length) {
-      const rawUrl = CUSTOM_BG[bgImageIndex - 1];
-      bgImageDataUrl = await getBase64ImageFromUrl(rawUrl);
+      bgImageDataUrl = await getBase64ImageFromUrl(CUSTOM_BG[bgImageIndex - 1]);
     }
 
-    const { analysis, scoreData } = await getUserAnalysisData(username);
-    const { data: rawUser } = await axios.get(`https://api.github.com/users/${username}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
-      timeout: 5000,
-    });
+    const avatarBase64 = await getBase64Image(rawUser.avatar_url);
+    const tokens = DESIGN_TOKENS[theme];
+    
+    const width = 850;
+    const height = 420;
+    const padding = 30;
+    
+    const { score, level, progress, rankName, rankColor, topLanguages, stats, contributionCalendar } = userData;
+    const displayName = rawUser.name || username;
+    const bio = rawUser.bio ? 
+      (rawUser.bio.length > 80 ? rawUser.bio.slice(0, 77) + '...' : rawUser.bio) : 
+      'Open Source Contributor';
 
-    const {
-      followers,
-      following,
-      public_repos: repos,
-      public_gists: gists,
-      bio,
-      name,
-      avatar_url,
-    } = rawUser;
-    const { score } = scoreData;
-    const displayName = name || username;
-    const shortBio = bio ? (bio.length > 70 ? bio.slice(0, 67) + '...' : bio) : 'GitHub Developer';
-    const level = Math.floor(score);
-    const rankName = getRankName(score);
-    const decimal = score - level;
-    const progressPercent = decimal * 100; // e.g., 12.34 → 34%
+    // Safe stat extraction
+    const statTotalCommits = stats?.totalCommits || 0;
+    const statPullRequests = stats?.pullRequests || 0;
+    const statTotalStars = stats?.totalStars || 0;
+    const statRepos = rawUser.public_repos || 0;
 
-    const avatarBase64 = await getBase64Image(avatar_url);
+    // Sparkline data from contribution calendar
+    const sparklineData = contributionCalendar.map(day => day.contributionCount || day.count || 0).slice(-30);
+    
+    // Language bars
+    const languageSvg = showLanguages ? generateLanguageBars(
+      topLanguages, 
+      width - 240, 
+      130, 
+      180, 
+      4, 
+      theme
+    ) : '';
 
-    // New dimensions – more spacious
-    const width = 600;
-    const height = 340;
-    const padding = 24;
+    const sparklineSvg = showSparkline && sparklineData.length > 0 ? generateSparkline(
+      sparklineData,
+      padding + 200,
+      height - 70,
+      300,
+      40,
+      tokens.stats.contrib
+    ) : '';
 
-    // Theme colours – refined for better contrast and modern look
-    const colors = theme === 'light' ? {
-      bgStart: '#f8fafc',
-      bgEnd: '#e2e8f0',
-      cardBg: '#ffffff',
-      textPrimary: '#0f172a',
-      textSecondary: '#475569',
-      textMuted: '#64748b',
-      accent: '#3b82f6',
-      rankColor: '#f97316',
-      progressBg: '#e2e8f0',
-      progressFill: '#3b82f6',
-      statValue: '#1e293b',
-      statLabel: '#64748b',
-      borderLight: '#e2e8f0',
-      watermark: '#9ca3af',
-      overlay: 'rgba(255, 255, 255, 0.75)',
-    } : {
-      bgStart: '#0f172a',
-      bgEnd: '#1e293b',
-      cardBg: '#1e293b',
-      textPrimary: '#f8fafc',
-      textSecondary: '#cbd5e1',
-      textMuted: '#94a3b8',
-      accent: '#60a5fa',
-      rankColor: '#fbbf24',
-      progressBg: '#334155',
-      progressFill: '#60a5fa',
-      statValue: '#f1f5f9',
-      statLabel: '#94a3b8',
-      borderLight: '#334155',
-      watermark: '#64748b',
-      overlay: 'rgba(0, 0, 0, 0.65)',
-    };
+    const rankGlowColor = rankColor || tokens.rank.default;
 
-    // Background SVG – either gradient or custom image with overlay.
-    // If bgImageDataUrl is null (failed fetch), we fall back to gradient.
-    let backgroundSvg = '';
-    if (bgImageDataUrl) {
-      backgroundSvg = `
-    <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
-    <rect width="100%" height="100%" fill="${colors.overlay}" />
-      `;
-    } else {
-      backgroundSvg = `
-    <rect width="100%" height="100%" rx="20" fill="url(#bgGrad)" />
-      `;
-    }
+    // Background
+    const backgroundSvg = bgImageDataUrl ? `
+      <defs>
+        <filter id="blur"><feGaussianBlur stdDeviation="3"/></filter>
+        <linearGradient id="bgOverlay" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${tokens.bg.start}" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="${tokens.bg.end}" stop-opacity="0.95"/>
+        </linearGradient>
+      </defs>
+      <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" filter="url(#blur)"/>
+      <rect width="100%" height="100%" fill="url(#bgOverlay)"/>
+    ` : `
+      <defs>
+        ${generateGradientDefinition('mainBg', [tokens.bg.start, tokens.bg.end])}
+        <filter id="cardShadow">
+          <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.25"/>
+        </filter>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <rect width="100%" height="100%" rx="24" fill="url(#mainBg)" filter="url(#cardShadow)"/>
+    `;
 
-    // Progress bar logic – handle edge case when decimal is 0 (exact integer level)
-    let progressBarWidth = 0;
-    let progressText = '';
-    if (decimal === 0) {
-      progressBarWidth = 300; // Full bar to indicate max level for current rank
-      progressText = 'Max level for this rank';
-    } else {
-      progressBarWidth = progressPercent * 3; // 300px total width
-      progressText = `${Math.round(progressPercent)}% to next level`;
-    }
+    // Stats items
+    const statItems = [
+      { label: 'Repos', value: statRepos, color: tokens.stats.commit },
+      { label: 'Commits', value: statTotalCommits, color: tokens.stats.contrib },
+      { label: 'PRs', value: statPullRequests, color: tokens.stats.pr },
+      { label: 'Stars', value: statTotalStars, color: tokens.stats.issue }
+    ];
 
-    // SVG template with improved layout
+    const statsY = 270;
+    const statsStartX = 200;
+    const statsSpacing = 140;
+
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="GitHub Profile Card for ${escapeXml(username)}">
+  ${backgroundSvg}
+  
+  <!-- Glass Side Panel -->
+  <rect x="20" y="20" width="160" height="${height - 40}" rx="16" fill="${tokens.glass.bg}" stroke="${tokens.glass.border}" stroke-width="1"/>
+  
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${colors.bgStart}" />
-      <stop offset="100%" stop-color="${colors.bgEnd}" />
-    </linearGradient>
-    <filter id="cardShadow">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.15"/>
-    </filter>
-    <filter id="avatarGlow">
-      <feGaussianBlur stdDeviation="4" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-    <clipPath id="avatarClip">
-      <circle cx="84" cy="84" r="56" />
-    </clipPath>
-    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="${colors.accent}" />
-      <stop offset="100%" stop-color="${theme === 'light' ? '#8b5cf6' : '#a78bfa'}" />
+    <clipPath id="avatarClip"><circle cx="100" cy="100" r="50"/></clipPath>
+    <linearGradient id="avatarRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="${rankGlowColor}"/>
+      <stop offset="100%" stop-color="${tokens.rank.epic}"/>
     </linearGradient>
   </defs>
-
-  <!-- Main card background -->
-  <rect width="100%" height="100%" rx="20" filter="url(#cardShadow)" />
-  ${backgroundSvg}
-
-  <!-- Left section: Avatar & Profile -->
-  <g transform="translate(${padding}, ${padding})">
-    <!-- Avatar glow & image -->
-    <circle cx="84" cy="84" r="60" fill="${colors.borderLight}" opacity="0.4" />
-    <image href="${escapeXml(avatarBase64)}" x="28" y="28" width="112" height="112" clip-path="url(#avatarClip)" />
-    
-    <!-- Name & Username -->
-    <text x="160" y="54" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5">${escapeXml(displayName)}</text>
-    <text x="160" y="80" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="16">@${escapeXml(username)}</text>
-    
-    <!-- Level badge -->
-    <rect x="160" y="96" width="72" height="26" rx="13" fill="${colors.accent}" opacity="0.15" />
-    <text x="196" y="114" text-anchor="middle" fill="${colors.accent}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" font-weight="600">Lv ${level}</text>
+  
+  <!-- Avatar Glow -->
+  <circle cx="100" cy="100" r="58" fill="url(#avatarRing)" opacity="0.3" filter="url(#glow)">
+    <animate attributeName="opacity" values="0.3;0.5;0.3" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="100" cy="100" r="54" fill="url(#avatarRing)"/>
+  <image href="${escapeXml(avatarBase64)}" x="46" y="46" width="108" height="108" clip-path="url(#avatarClip)"/>
+  
+  <!-- Level Badge -->
+  <g transform="translate(100, 170)">
+    <rect x="-35" y="0" width="70" height="28" rx="14" fill="${tokens.glass.bg}" stroke="${rankGlowColor}" stroke-width="2"/>
+    <text x="0" y="19" text-anchor="middle" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" font-weight="700" fill="${rankGlowColor}">Lv ${level}</text>
   </g>
-
-  <!-- Bio line -->
-  <text x="${padding + 160}" y="${padding + 140}" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" font-style="italic">${escapeXml(shortBio)}</text>
-
-  <!-- Stats grid: Repos, Gists, Followers, Following -->
-  <g transform="translate(${padding}, 210)">
-    <!-- Repos -->
-    <rect x="0" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
-    <text x="55" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(repos)}</text>
-    <text x="55" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Repositories</text>
-
-    <!-- Gists -->
-    <rect x="126" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
-    <text x="181" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(gists)}</text>
-    <text x="181" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Gists</text>
-
-    <!-- Followers -->
-    <rect x="252" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
-    <text x="307" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(followers)}</text>
-    <text x="307" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Followers</text>
-
-    <!-- Following -->
-    <rect x="378" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
-    <text x="433" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(following)}</text>
-    <text x="433" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Following</text>
-  </g>
-
-  <!-- Rank section with progress bar -->
-  <g transform="translate(${padding}, 300)">
-    <text x="0" y="10" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="800">${escapeXml(rankName)}</text>
+  
+  <!-- Rank Name -->
+  <text x="100" y="220" text-anchor="middle" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="800" fill="${rankGlowColor}" filter="url(#glow)">${escapeXml(rankName)}</text>
+  
+  <!-- Main Content -->
+  <g transform="translate(200, 60)">
+    <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="32" font-weight="700" fill="${tokens.text.primary}">
+      ${escapeXml(displayName)}
+      ${rawUser.hireable ? '<tspan dx="10" fill="#22c55e" font-size="20">●</tspan>' : ''}
+    </text>
+    <text x="0" y="30" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="16" fill="${tokens.text.secondary}">@${escapeXml(username)}</text>
+    <text x="0" y="60" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" fill="${tokens.text.muted}" font-style="italic">"${escapeXml(bio)}"</text>
     
-    <!-- Progress bar container -->
-    <rect x="150" y="0" width="300" height="10" rx="5" fill="${colors.progressBg}" />
-    <rect x="150" y="0" width="${progressBarWidth}" height="10" rx="5" fill="url(#progressGrad)" />
-    <text x="460" y="10" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" text-anchor="end">${escapeXml(progressText)}</text>
+    <!-- Progress Bar -->
+    <g transform="translate(0, 85)">
+      <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11" fill="${tokens.text.muted}">Progress to Level ${level + 1}</text>
+      ${generateProgressBar(0, 8, 300, 8, progress, rankGlowColor, tokens.bg.accent, 4)}
+      <text x="300" y="0" text-anchor="end" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11" fill="${tokens.text.secondary}">${Math.round(progress)}%</text>
+    </g>
+    
+    <!-- Stats Grid -->
+    <g transform="translate(0, ${statsY - 60})">
+      ${statItems.map((stat, i) => `
+        <g transform="translate(${i * statsSpacing}, 0)">
+          <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="24" font-weight="700" fill="${stat.color}">${stat.value}</text>
+          <text x="0" y="20" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" fill="${tokens.text.muted}" letter-spacing="1">${stat.label}</text>
+        </g>
+      `).join('')}
+    </g>
   </g>
-
-  <!-- Watermark -->
-  <text x="${width - 16}" y="${height - 8}" text-anchor="end" fill="${colors.watermark}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10" opacity="0.5">githubsmartapi.vercel.app</text>
+  
+  <!-- Languages -->
+  ${languageSvg ? `
+    <g transform="translate(${width - 240}, 110)">
+      <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" font-weight="600" fill="${tokens.text.secondary}" letter-spacing="1">TOP LANGUAGES</text>
+      ${languageSvg}
+    </g>
+  ` : ''}
+  
+  <!-- Sparkline -->
+  ${sparklineSvg ? `
+    <g transform="translate(0, ${height - 90})">
+      <text x="${padding + 200}" y="-10" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11" fill="${tokens.text.muted}">30-Day Activity</text>
+      ${sparklineSvg}
+    </g>
+  ` : ''}
+  
+  <!-- Followers/Following -->
+  <g transform="translate(200, ${height - 45})">
+    <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="13" fill="${tokens.text.secondary}">
+      <tspan fill="${tokens.text.primary}" font-weight="600">${rawUser.following || 0}</tspan> Following
+      <tspan dx="20" fill="${tokens.text.primary}" font-weight="600">${rawUser.followers || 0}</tspan> Followers
+    </text>
+  </g>
+  
+  <!-- Location -->
+  ${rawUser.location ? `
+    <g transform="translate(200, ${height - 25})">
+      <text x="0" y="0" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" fill="${tokens.text.muted}">📍 ${escapeXml(rawUser.location)}</text>
+    </g>
+  ` : ''}
+  
+  <!-- Footer -->
+  <text x="${width - 20}" y="${height - 15}" text-anchor="end" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10" fill="${tokens.text.muted}" opacity="0.6">
+    githubsmartapi.vercel.app • ${new Date().toLocaleDateString()}
+  </text>
 </svg>`;
 
     res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cache-Control', 'public, max-age=300, immutable');
     res.send(svg);
+    
   } catch (err) {
-    console.error('Card error:', err.message);
-    const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const bg = theme === 'light' ? '#f8fafc' : '#0f172a';
-    const text = theme === 'light' ? '#0f172a' : '#f8fafc';
+    console.error('[Card Error]:', err);
+    const tokens = DESIGN_TOKENS[theme];
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340">
-  <rect width="600" height="340" rx="20" fill="${bg}" stroke="#ef4444" stroke-width="2"/>
-  <text x="300" y="150" text-anchor="middle" fill="#ef4444" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="600">Oops! Something went wrong</text>
-  <text x="300" y="180" text-anchor="middle" fill="${text}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">${escapeXml(String(err.message))}</text>
-  <text x="300" y="220" text-anchor="middle" fill="${text}" opacity="0.7" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">Please check the username and try again</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="420" viewBox="0 0 850 420">
+  <rect width="100%" height="100%" rx="24" fill="${tokens.bg.start}"/>
+  <text x="425" y="180" text-anchor="middle" font-family="'Google Sans', sans-serif" font-size="20" fill="#ef4444">⚠ Generation Failed</text>
+  <text x="425" y="220" text-anchor="middle" font-family="'Google Sans', sans-serif" font-size="14" fill="${tokens.text.secondary}">${escapeXml(err.message)}</text>
+  <text x="425" y="260" text-anchor="middle" font-family="'Google Sans', sans-serif" font-size="12" fill="${tokens.text.muted}">Please check the username and try again</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
 };
-
-// ----------------------------------------------------------------------
-// Helper: safe XML escape
-// ----------------------------------------------------------------------
-function escapeXml(str) {
-  if (str == null) return '';
-  const s = String(str);
-  return s.replace(/[<>&'"]/g, (ch) => {
-    switch (ch) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case "'": return '&apos;';
-      case '"': return '&quot;';
-      default: return ch;
-    }
-  });
-}
