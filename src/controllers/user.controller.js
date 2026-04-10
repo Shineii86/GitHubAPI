@@ -4,9 +4,8 @@
  * Features:
  * - JSON analysis (/api/user/:username) with level, rankName, rankWithBullet
  * - Side‑by‑side comparison (/api/compare/:user1/:user2)
- * - SVG profile card (/api/card/:username) – avatar, name, username+level, rank name only,
- *   following/followers, watermark, optional custom background images (?bgImage=1..6)
- * - Shields.io badges: removed
+ * - SVG profile card (/api/card/:username) – upgraded UI/UX with stats grid, progress bar,
+ *   modern layout, and optional custom background images (?bgImage=1..6)
  * - Optional AI summaries (OpenAI), Redis caching (5 min TTL)
  * - Light/dark themes via ?theme=light|dark
  * - Google Sans font stack (fallback to Product Sans, sans-serif)
@@ -140,7 +139,7 @@ export const compareUsers = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// GET /api/card/:username – full profile card with optional custom background
+// GET /api/card/:username – upgraded UI/UX profile card
 // Supports ?theme=light|dark, ?bgImage=1..6
 // ----------------------------------------------------------------------
 export const generateProfileCard = async (req, res) => {
@@ -161,44 +160,70 @@ export const generateProfileCard = async (req, res) => {
       timeout: 5000,
     });
 
-    const { followers, following, bio, name, avatar_url } = rawUser;
+    const {
+      followers,
+      following,
+      public_repos: repos,
+      public_gists: gists,
+      bio,
+      name,
+      avatar_url,
+    } = rawUser;
     const { score } = scoreData;
     const displayName = name || username;
-    const shortBio = bio ? (bio.length > 60 ? bio.slice(0, 57) + '...' : bio) : 'GitHub Developer';
+    const shortBio = bio ? (bio.length > 70 ? bio.slice(0, 67) + '...' : bio) : 'GitHub Developer';
     const level = Math.floor(score);
     const rankName = getRankName(score);
+    const progressPercent = (score - level) * 100; // decimal part as percentage
 
     const avatarBase64 = await getBase64Image(avatar_url);
 
-    const width = 500;
-    const height = 350;
-    const avatarSize = 95;
-    const avatarX = width / 2 - avatarSize / 2;
-    const avatarY = 30;
+    // New dimensions – more spacious
+    const width = 600;
+    const height = 340;
+    const padding = 24;
 
+    // Theme colours – refined for better contrast and modern look
     const colors = theme === 'light' ? {
+      bgStart: '#f8fafc',
+      bgEnd: '#e2e8f0',
+      cardBg: '#ffffff',
       textPrimary: '#0f172a',
       textSecondary: '#475569',
       textMuted: '#64748b',
+      accent: '#3b82f6',
       rankColor: '#f97316',
-      avatarGlow: '#cbd5e1',
-      watermarkColor: '#9ca3af',
-      overlayColor: 'rgba(255, 255, 255, 0.75)',
+      progressBg: '#e2e8f0',
+      progressFill: '#3b82f6',
+      statValue: '#1e293b',
+      statLabel: '#64748b',
+      borderLight: '#e2e8f0',
+      watermark: '#9ca3af',
+      overlay: 'rgba(255, 255, 255, 0.75)',
     } : {
+      bgStart: '#0f172a',
+      bgEnd: '#1e293b',
+      cardBg: '#1e293b',
       textPrimary: '#f8fafc',
       textSecondary: '#cbd5e1',
       textMuted: '#94a3b8',
+      accent: '#60a5fa',
       rankColor: '#fbbf24',
-      avatarGlow: '#334155',
-      watermarkColor: '#64748b',
-      overlayColor: 'rgba(0, 0, 0, 0.65)',
+      progressBg: '#334155',
+      progressFill: '#60a5fa',
+      statValue: '#f1f5f9',
+      statLabel: '#94a3b8',
+      borderLight: '#334155',
+      watermark: '#64748b',
+      overlay: 'rgba(0, 0, 0, 0.65)',
     };
 
+    // Background SVG – either gradient or custom image with overlay
     let backgroundSvg = '';
     if (bgImageDataUrl) {
       backgroundSvg = `
     <image href="${escapeXml(bgImageDataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" />
-    <rect width="100%" height="100%" fill="${colors.overlayColor}" />
+    <rect width="100%" height="100%" fill="${colors.overlay}" />
       `;
     } else {
       backgroundSvg = `
@@ -206,60 +231,103 @@ export const generateProfileCard = async (req, res) => {
       `;
     }
 
+    // SVG template with improved layout
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${theme === 'light' ? '#f1f5f9' : '#0f172a'}" />
-      <stop offset="100%" stop-color="${theme === 'light' ? '#e2e8f0' : '#1e293b'}" />
+      <stop offset="0%" stop-color="${colors.bgStart}" />
+      <stop offset="100%" stop-color="${colors.bgEnd}" />
     </linearGradient>
-    <filter id="shadow">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.2"/>
+    <filter id="cardShadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <filter id="avatarGlow">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
     <clipPath id="avatarClip">
-      <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2}" />
+      <circle cx="84" cy="84" r="56" />
     </clipPath>
+    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${colors.accent}" />
+      <stop offset="100%" stop-color="${theme === 'light' ? '#8b5cf6' : '#a78bfa'}" />
+    </linearGradient>
   </defs>
 
-  <rect width="100%" height="100%" rx="20" filter="url(#shadow)" />
+  <!-- Main card background -->
+  <rect width="100%" height="100%" rx="20" filter="url(#cardShadow)" />
   ${backgroundSvg}
 
-  <circle cx="${width/2}" cy="${avatarY + avatarSize/2}" r="${avatarSize/2 + 6}" fill="${colors.avatarGlow}" opacity="0.4"/>
-  <image href="${escapeXml(avatarBase64)}" x="${avatarX}" y="${avatarY}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#avatarClip)" />
-
-  <g>
-    <text x="${width/2}" y="${avatarY + avatarSize + 28}" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="700">${escapeXml(displayName)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 52}" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15">@${escapeXml(username)} • Lv ${escapeXml(level)}</text>
-    <text x="${width/2}" y="${avatarY + avatarSize + 76}" text-anchor="middle" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15">${escapeXml(shortBio)}</text>
+  <!-- Left section: Avatar & Profile -->
+  <g transform="translate(${padding}, ${padding})">
+    <!-- Avatar glow & image -->
+    <circle cx="84" cy="84" r="60" fill="${colors.borderLight}" opacity="0.4" />
+    <image href="${escapeXml(avatarBase64)}" x="28" y="28" width="112" height="112" clip-path="url(#avatarClip)" />
+    
+    <!-- Name & Username -->
+    <text x="160" y="54" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5">${escapeXml(displayName)}</text>
+    <text x="160" y="80" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="16">@${escapeXml(username)}</text>
+    
+    <!-- Level badge -->
+    <rect x="160" y="96" width="72" height="26" rx="13" fill="${colors.accent}" opacity="0.15" />
+    <text x="196" y="114" text-anchor="middle" fill="${colors.accent}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" font-weight="600">Lv ${level}</text>
   </g>
 
-  <g>
-    <text x="${width/2}" y="240" text-anchor="middle" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="30" font-weight="800">${escapeXml(rankName)}</text>
+  <!-- Bio line -->
+  <text x="${padding + 160}" y="${padding + 140}" fill="${colors.textMuted}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14" font-style="italic">${escapeXml(shortBio)}</text>
+
+  <!-- Stats grid: Repos, Gists, Followers, Following -->
+  <g transform="translate(${padding}, 210)">
+    <!-- Repos -->
+    <rect x="0" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
+    <text x="55" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(repos)}</text>
+    <text x="55" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Repositories</text>
+
+    <!-- Gists -->
+    <rect x="126" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
+    <text x="181" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(gists)}</text>
+    <text x="181" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Gists</text>
+
+    <!-- Followers -->
+    <rect x="252" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
+    <text x="307" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(followers)}</text>
+    <text x="307" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Followers</text>
+
+    <!-- Following -->
+    <rect x="378" y="0" width="110" height="60" rx="12" fill="${colors.cardBg}" stroke="${colors.borderLight}" stroke-width="1.5" />
+    <text x="433" y="24" text-anchor="middle" fill="${colors.statValue}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="700">${escapeXml(following)}</text>
+    <text x="433" y="44" text-anchor="middle" fill="${colors.statLabel}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="11">Following</text>
   </g>
 
-  <g transform="translate(${width/2 - 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15" font-weight="700">${escapeXml(following)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10">Following</text>
-  </g>
-  <g transform="translate(${width/2 + 100}, 280)">
-    <text x="0" y="0" text-anchor="middle" fill="${colors.textPrimary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="15" font-weight="700">${escapeXml(followers)}</text>
-    <text x="0" y="18" text-anchor="middle" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10">Followers</text>
+  <!-- Rank section with progress bar -->
+  <g transform="translate(${padding}, 300)">
+    <text x="0" y="10" fill="${colors.rankColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="20" font-weight="800">${escapeXml(rankName)}</text>
+    
+    <!-- Progress bar container -->
+    <rect x="150" y="0" width="300" height="10" rx="5" fill="${colors.progressBg}" />
+    <rect x="150" y="0" width="${progressPercent * 3}" height="10" rx="5" fill="url(#progressGrad)" />
+    <text x="460" y="10" fill="${colors.textSecondary}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12" text-anchor="end">${Math.round(progressPercent)}% to next level</text>
   </g>
 
-  <text x="${width - 12}" y="${height - 8}" text-anchor="end" fill="${colors.watermarkColor}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="9" opacity="0.6">githubsmartapi.vercel.app</text>
+  <!-- Watermark -->
+  <text x="${width - 16}" y="${height - 8}" text-anchor="end" fill="${colors.watermark}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="10" opacity="0.5">githubsmartapi.vercel.app</text>
 </svg>`;
+
     res.setHeader('Content-Type', 'image/svg+xml');
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.send(svg);
   } catch (err) {
     console.error('Card error:', err.message);
     const theme = req.query.theme === 'light' ? 'light' : 'dark';
-    const bg = theme === 'light' ? '#f3f4f6' : '#1e293b';
-    const text = theme === 'light' ? '#111827' : '#f1f5f9';
+    const bg = theme === 'light' ? '#f8fafc' : '#0f172a';
+    const text = theme === 'light' ? '#0f172a' : '#f8fafc';
     const errorSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="500" height="320" viewBox="0 0 500 320">
-  <rect width="500" height="320" rx="20" fill="${bg}"/>
-  <text x="250" y="160" text-anchor="middle" fill="#ef4444" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18">Error: ${escapeXml(String(err.message))}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="340" viewBox="0 0 600 340">
+  <rect width="600" height="340" rx="20" fill="${bg}" stroke="#ef4444" stroke-width="2"/>
+  <text x="300" y="150" text-anchor="middle" fill="#ef4444" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="18" font-weight="600">Oops! Something went wrong</text>
+  <text x="300" y="180" text-anchor="middle" fill="${text}" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="14">${escapeXml(String(err.message))}</text>
+  <text x="300" y="220" text-anchor="middle" fill="${text}" opacity="0.7" font-family="'Google Sans', 'Product Sans', sans-serif" font-size="12">Please check the username and try again</text>
 </svg>`;
     res.status(500).setHeader('Content-Type', 'image/svg+xml').send(errorSvg);
   }
