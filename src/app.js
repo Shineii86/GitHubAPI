@@ -1,80 +1,94 @@
+/**
+ * Express Application v3.0
+ * Security headers, compression, and health checks
+ */
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
-import cors from 'cors';
 import compression from 'compression';
 import userRoutes from './routes/user.routes.js';
 import { config } from './config/env.js';
+import { cache } from './services/cache.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Security & performance middleware
+// Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-    },
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"]
+    }
   },
+  crossOriginEmbedderPolicy: false // Allow images from GitHub
 }));
-app.use(cors());
+
 app.use(compression());
+app.use(express.json({ limit: '10kb' })); // Prevent large payloads
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging (only in development)
+// Request logging
 if (config.nodeEnv !== 'production') {
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
     next();
   });
 }
 
-// API routes
-app.use('/api', userRoutes);
-
-// Static files – serve from /public, but gracefully handle missing directory
-const publicPath = path.join(__dirname, '..', 'public');
-app.use(express.static(publicPath, { fallthrough: true }));
-
-// Root route – fallback to simple message if index.html missing
-app.get('/', (req, res) => {
-  res.sendFile(path.join(publicPath, 'index.html'), (err) => {
-    if (err) {
-      // If index.html is missing (e.g., in pure API deployment), show API info
-      res.json({
-        service: 'GitHub Smart API',
-        version: '2.0.0',
-        endpoints: ['/api/user/:username', '/api/vs/:user1/:user2', '/api/card/:username'],
-        docs: 'https://github.com/Shineii86/GitHubAPI',
-      });
-    }
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  const cacheStats = cache.getStats();
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '3.0.0',
+    cache: cacheStats,
+    uptime: process.uptime()
   });
 });
 
-// Catch-all – SPA fallback or API 404
+// API routes
+app.use('/api', userRoutes);
+
+// Static files
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath, { maxAge: '1d' }));
+
+// SPA fallback
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(publicPath, 'index.html'), (err) => {
-      if (err) res.status(404).json({ error: 'Not found' });
-    });
+    res.sendFile(path.join(publicPath, 'index.html'));
   } else {
-    res.status(404).json({ error: 'API endpoint not found' });
+    res.status(404).json({ error: 'API endpoint not found', path: req.path });
   }
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'INTERNAL_ERROR',
+    message: config.nodeEnv === 'production' ? 'Internal server error' : err.message,
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Export for Vercel
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(config.port, () => {
+    console.log(`
+    🚀 GitHub Analyzer v3.0.0
+    ━━━━━━━━━━━━━━━━━━━━━━━━
+    📊 API:    http://localhost:${config.port}/api/user/octocat
+    🏥 Health: http://localhost:${config.port}/health
+    🌐 Web:    http://localhost:${config.port}
+    `);
+  });
+}
+
 export default app;
