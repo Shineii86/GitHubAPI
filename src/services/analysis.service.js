@@ -1,109 +1,110 @@
 /**
- * Transforms raw GitHub data into structured developer metrics.
+ * Analysis Service v3.0
+ * Deeper insights and trend analysis
  */
-import { daysSince, getAgeInYears } from '../utils/helpers.js';
+import { daysSince } from '../utils/helpers.js';
 
-/**
- * Analyse user profile and repositories.
- * @param {object} githubData - { user, repos }
- * @param {object} contributions - { totalContributions, currentStreak, longestStreak }
- * @returns {object} Aggregated metrics
- */
-export const analyzeUser = ({ user, repos }, contributions) => {
-  // Filter out forks and archived repos for activity metrics
-  const sourceRepos = repos.filter(r => !r.fork && !r.archived);
-  const allRepos = repos;
-
-  // Stars, forks, watchers
-  const totalStars = allRepos.reduce((sum, r) => sum + r.stargazers_count, 0);
-  const totalForks = allRepos.reduce((sum, r) => sum + r.forks_count, 0);
-  const totalWatchers = allRepos.reduce((sum, r) => sum + r.watchers_count, 0);
-
-  // Language frequency (by repo count)
-  const languageCount = {};
-  allRepos.forEach(repo => {
+export const analyzeUser = ({ user, repos, meta }, contributions) => {
+  // Language frequency with percentages
+  const languages = {};
+  const languageBytes = {};
+  
+  repos.forEach((repo) => {
     if (repo.language) {
-      languageCount[repo.language] = (languageCount[repo.language] || 0) + 1;
+      languages[repo.language] = (languages[repo.language] || 0) + 1;
+      languageBytes[repo.language] = (languageBytes[repo.language] || 0) + (repo.size || 0);
     }
   });
 
-  // Calculate percentages
-  const totalLangRepos = Object.values(languageCount).reduce((a, b) => a + b, 0);
-  const languages = Object.entries(languageCount)
+  // Calculate language percentages
+  const totalRepos = repos.length;
+  const languageStats = Object.entries(languages)
     .map(([name, count]) => ({
       name,
       count,
-      percentage: Math.round((count / totalLangRepos) * 100),
-      color: getLanguageColor(name),
+      percentage: Math.round((count / totalRepos) * 100),
+      bytes: languageBytes[name]
     }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+    .sort((a, b) => b.count - a.count);
 
-  // Active repos (updated in last 90 days)
-  const activeRepos = sourceRepos.filter(r => daysSince(r.updated_at) < 90);
+  // Activity analysis (last 90 days)
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
+  const activeRepos = repos.filter((r) => {
+    const updated = new Date(r.updated_at);
+    return updated > ninetyDaysAgo;
+  });
 
-  // Estimate PRs and issues (from repo counts – GitHub API doesn't provide totals easily)
-  const openIssuesCount = allRepos.reduce((sum, r) => sum + r.open_issues_count, 0);
+  const recentlyCreated = repos.filter((r) => {
+    const created = new Date(r.created_at);
+    return created > ninetyDaysAgo;
+  }).length;
+
+  // Repository metrics
+  const repoMetrics = {
+    total: repos.length,
+    public: repos.filter(r => !r.private).length,
+    forks: repos.filter(r => r.fork).length,
+    archived: repos.filter(r => r.archived).length,
+    templates: repos.filter(r => r.is_template).length,
+    averageSize: repos.length > 0 
+      ? Math.round(repos.reduce((acc, r) => acc + (r.size || 0), 0) / repos.length) 
+      : 0,
+    totalSize: repos.reduce((acc, r) => acc + (r.size || 0), 0),
+    withIssues: repos.filter(r => r.has_issues).length,
+    withWiki: repos.filter(r => r.has_wiki).length,
+    withPages: repos.filter(r => r.has_pages).length
+  };
+
+  // Engagement metrics
+  const engagement = {
+    totalStars: repos.reduce((sum, r) => sum + (r.stargazers_count || 0), 0),
+    totalForks: meta?.aggregated?.totalForks || 0,
+    totalWatchers: meta?.aggregated?.totalWatchers || 0,
+    totalOpenIssues: meta?.aggregated?.totalOpenIssues || 0
+  };
+
+  // Account age
+  const accountAgeDays = daysSince(user.created_at);
+  const accountAgeYears = Math.floor(accountAgeDays / 365);
 
   return {
     profile: {
       username: user.login,
       name: user.name,
       bio: user.bio,
-      avatarUrl: user.avatar_url,
+      company: user.company,
+      location: user.location,
+      blog: user.blog,
+      twitter: user.twitter_username,
       followers: user.followers,
       following: user.following,
       publicRepos: user.public_repos,
       publicGists: user.public_gists,
-      accountAgeYears: getAgeInYears(user.created_at),
+      avatarUrl: user.avatar_url,
+      profileUrl: user.html_url,
       createdAt: user.created_at,
       updatedAt: user.updated_at,
-      hireable: user.hireable || false,
-      location: user.location,
-      company: user.company,
-      blog: user.blog,
+      accountAgeYears,
+      accountAgeDays,
+      isHireable: user.hireable
     },
     stats: {
-      totalStars,
-      totalForks,
-      totalWatchers,
-      totalRepos: allRepos.length,
-      sourceRepos: sourceRepos.length,
+      ...engagement,
+      totalRepos: repoMetrics.total,
       activeRepos: activeRepos.length,
-      totalContributions: contributions.totalContributions,
-      currentStreak: contributions.currentStreak,
-      longestStreak: contributions.longestStreak,
-      openIssues: openIssuesCount,
-      // These would require additional API calls; set to 0 for now
-      pullRequests: 0,
-      issuesOpened: 0,
+      recentlyCreated,
+      repoMetrics,
+      contributionStats: contributions,
+      activityRatio: repoMetrics.total > 0 ? (activeRepos.length / repoMetrics.total) : 0
     },
-    languages,
-    // Raw data for advanced visualizations
-    _raw: { repos: allRepos },
+    languages: languageStats,
+    topLanguage: languageStats[0]?.name || 'Unknown',
+    meta: {
+      fetchedAt: new Date().toISOString(),
+      hasMoreRepos: meta?.hasMore || false,
+      totalReposAnalyzed: meta?.totalFetched || repos.length
+    }
   };
 };
-
-/**
- * Map language name to a representative color.
- */
-function getLanguageColor(lang) {
-  const colors = {
-    JavaScript: '#f1e05a',
-    TypeScript: '#3178c6',
-    Python: '#3572A5',
-    Java: '#b07219',
-    Go: '#00ADD8',
-    Rust: '#dea584',
-    Ruby: '#701516',
-    PHP: '#4F5D95',
-    'C++': '#f34b7d',
-    'C#': '#178600',
-    Swift: '#F05138',
-    Kotlin: '#A97BFF',
-    HTML: '#e34c26',
-    CSS: '#563d7c',
-    Shell: '#89e051',
-  };
-  return colors[lang] || '#8b8b8b';
-}
