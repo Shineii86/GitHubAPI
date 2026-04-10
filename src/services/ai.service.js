@@ -1,5 +1,6 @@
 /**
  * OpenAI integration for generating natural‑language insights.
+ * If no API key is provided, returns a placeholder message.
  */
 import OpenAI from 'openai';
 import { config } from '../config/env.js';
@@ -15,7 +16,7 @@ if (config.openAiKey) {
 /**
  * Generate a short AI summary of the developer's profile.
  * @param {object} analysis - Output from analyzeUser()
- * @param {object} scoreData - { score, breakdown }
+ * @param {object} scoreData - { score, rank }
  * @returns {Promise<string>}
  */
 export const generateAISummary = async (analysis, scoreData) => {
@@ -23,33 +24,31 @@ export const generateAISummary = async (analysis, scoreData) => {
     return 'AI summary not available (OpenAI API key not configured).';
   }
 
-  const { profile, stats, languages } = analysis;
-  const topLangs = languages.slice(0, 3).map(l => l.name).join(', ');
+  const languagesList = Object.keys(analysis.languages).join(', ') || 'none';
 
-  const prompt = `You are a friendly GitHub profile analyst. Summarize this developer in 2-3 sentences:
+  const prompt = `
+    You are a GitHub developer analyst. Evaluate the following profile:
+    - Score: ${scoreData.score}/100 (Rank ${scoreData.rank})
+    - Stars: ${analysis.stats.totalStars}
+    - Repos: ${analysis.stats.totalRepos}
+    - Active repos (last 90d): ${analysis.stats.activeRepos}
+    - Followers: ${analysis.profile.followers}
+    - Languages: ${languagesList}
+    - Total contributions: ${analysis.stats.totalContributions}
+    - Current streak: ${analysis.stats.currentStreak} days
+    - Longest streak: ${analysis.stats.longestStreak} days
 
-- Username: ${profile.username}
-- Score: ${scoreData.score}/100
-- Stars: ${stats.totalStars}
-- Forks: ${stats.totalForks}
-- Followers: ${profile.followers}
-- Repositories: ${stats.totalRepos} (${stats.activeRepos} active)
-- Total contributions: ${stats.totalContributions}
-- Current streak: ${stats.currentStreak} days
-- Longest streak: ${stats.longestStreak} days
-- Top languages: ${topLangs || 'none'}
-- Account age: ${profile.accountAgeYears} years
-
-Be concise and encouraging. Mention one strength and one area for growth if applicable.`;
+    Write one short paragraph (max 100 words) covering strengths, weaknesses, and overall summary. Be constructive.
+  `;
 
   try {
     const response = await openai.chat.completions.create({
-      model: config.openAiModel,
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 150,
+      max_tokens: 250,
       temperature: 0.7,
     });
-    return response.choices[0].message.content.trim();
+    return response.choices[0].message.content;
   } catch (err) {
     console.error('OpenAI error:', err.message);
     return 'AI summary temporarily unavailable.';
